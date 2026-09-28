@@ -12,7 +12,7 @@ Each coder loops through three phases: **compile → debug → refactor**. If a 
 
 The goal is to design a fair and efficient protocol for sharing the dongles, using only POSIX threads, mutexes and condition variables, while avoiding deadlocks, starvation and race conditions.
 
-### Overview of the rules
+### Overview
 
 - One thread per coder (`pthread_create`), plus one separate **monitor** thread.
 - One dongle between each pair of adjacent coders (a single dongle if there is only one coder).
@@ -51,6 +51,7 @@ The project is compiled with `cc -Wall -Wextra -Werror -pthread`.
 ./codexion number_of_coders time_to_burnout time_to_compile time_to_debug \
            time_to_refactor number_of_compiles_required dongle_cooldown scheduler
 ```
+The number of coders, time to burnout, etc,..., must be given as parameter during the execution of the program.
 
 | Argument | Unit | Description |
 |---|---|---|
