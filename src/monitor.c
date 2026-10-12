@@ -6,10 +6,9 @@
 /*   By: faharila <faharila@student.42antananari    +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2026/09/28 09:46:54 by faharila          #+#    #+#             */
-/*   Updated: 2026/09/28 09:46:55 by faharila         ###   ########.fr       */
+/*   Updated: 2026/10/12 10:04:46 by faharila         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
-
 
 #include "codexion.h"
 
@@ -46,6 +45,7 @@ void	*monitor(void *arg)
 				printf("%ld %d burned out\n", get_timestamp_ms(),
 					sim->coders[i].id);
 				stop_simulation(sim);
+				break;
 			}
 			i++;
 		}

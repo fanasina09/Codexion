@@ -6,7 +6,7 @@
 /*   By: faharila <faharila@student.42antananari    +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2026/09/28 09:46:07 by faharila          #+#    #+#             */
-/*   Updated: 2026/09/28 09:47:46 by faharila         ###   ########.fr       */
+/*   Updated: 2026/10/12 09:59:40 by faharila         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -23,22 +23,22 @@
 
 typedef struct s_dongle
 {
-	int is_taken;            // 0 = libre, 1 = pris
-	pthread_mutex_t is_lock; //
+	int				is_taken;
+	pthread_mutex_t	is_lock;
 	pthread_cond_t	is_cond;
-	struct s_coder *waiting[2]; // liste des coders qui attendent ce dongle
-	int nb_waiting;             // combien de coders attendent actuellement
-	long released_at;           // moment ou il a ete relache (ms)
+	struct s_coder	*waiting[2];
+	int				nb_waiting;
+	long			released_at;
 }					t_dongle;
 
 typedef struct s_coder
 {
-	int id;           // numero de coder
-	int nb_compliles; // combien de fois il a compile
+	int				id;
+	int				nb_compliles;
 	t_dongle		*left_dongle;
 	t_dongle		*right_dongle;
-	pthread_t thread;            // le thread qui le fait tourner
-	long last_compile_and_start; // debut de sa dernier compile en ()
+	pthread_t		thread;
+	long			last_compile_and_start;
 	struct s_sim	*sim;
 }					t_coder;
 
