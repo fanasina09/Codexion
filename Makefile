@@ -1,13 +1,27 @@
+# **************************************************************************** #
+#                                                                              #
+#                                                         :::      ::::::::    #
+#    Makefile                                           :+:      :+:    :+:    #
+#                                                     +:+ +:+         +:+      #
+#    By: faharila <faharila@student.42.fr>          +#+  +:+       +#+         #
+#                                                 +#+#+#+#+#+   +#+            #
+#    Created: 2026/10/12 11:22:51 by faharila          #+#    #+#              #
+#    Updated: 2026/10/13 14:35:21 by faharila         ###   ########.fr        #
+#                                                                              #
+# **************************************************************************** #
+
 NAME = codexion
 
 CC = cc
 
 CFLAGS = -Wall -Werror -Wextra -pthread
 
-SRC = cleanup.c dongle_actions.c get_timestamp_ms.c init_coders.c \
-	  init_dongles.c main.c monitor.c parsing.c release_dongle.c \
-	  routine_coder.c simulation_state.c take_dongle.c \
-	  waiting_queue.c
+DIRNAME = src
+
+SRC = $(DIRNAME)/cleanup.c $(DIRNAME)/dongle_actions.c $(DIRNAME)/get_timestamp_ms.c $(DIRNAME)/init_coders.c \
+	  $(DIRNAME)/init_dongles.c $(DIRNAME)/main.c $(DIRNAME)/monitor.c $(DIRNAME)/parsing.c $(DIRNAME)/release_dongle.c \
+	  $(DIRNAME)/routine_coder.c $(DIRNAME)/simulation_state.c $(DIRNAME)/take_dongle.c \
+	  $(DIRNAME)/waiting_queue.c
 
 OBJ = $(SRC:.c=.o)
 
