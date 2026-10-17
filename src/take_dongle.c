@@ -3,10 +3,10 @@
 /*                                                        :::      ::::::::   */
 /*   take_dongle.c                                      :+:      :+:    :+:   */
 /*                                                    +:+ +:+         +:+     */
-/*   By: faharila <faharila@student.42antananari    +#+  +:+       +#+        */
+/*   By: faharila <faharila@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2026/09/28 10:14:34 by faharila          #+#    #+#             */
-/*   Updated: 2026/09/28 10:14:53 by faharila         ###   ########.fr       */
+/*   Updated: 2026/10/16 05:56:40 by faharila         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -35,5 +35,6 @@ void	take_dongle(t_dongle *dongle, t_coder *coder)
 	}
 	dongle->is_taken = 1;
 	pthread_mutex_unlock(&dongle->is_lock);
-	printf("%ld %d has taken a dongle\n", get_timestamp_ms(), coder->id);
+	printf("%ld %d has taken a dongle\n",
+		get_elapsed_ms(coder->sim), coder->id);
 }

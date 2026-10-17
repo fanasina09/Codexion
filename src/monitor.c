@@ -3,10 +3,10 @@
 /*                                                        :::      ::::::::   */
 /*   monitor.c                                          :+:      :+:    :+:   */
 /*                                                    +:+ +:+         +:+     */
-/*   By: faharila <faharila@student.42antananari    +#+  +:+       +#+        */
+/*   By: faharila <faharila@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2026/09/28 09:46:54 by faharila          #+#    #+#             */
-/*   Updated: 2026/10/12 14:08:52 by faharila         ###   ########.fr       */
+/*   Updated: 2026/10/16 05:59:42 by faharila         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -38,11 +38,11 @@ void	*monitor(void *arg)
 		i = 0;
 		while (i < sim->number_of_coders)
 		{
-			elapsed =  get_timestamp_ms()
+			elapsed = get_timestamp_ms()
 				- sim->coders[i].last_compile_and_start;
 			if (elapsed > sim->time_to_burnout)
 			{
-				printf("%ld %d burned out\n", get_timestamp_ms(),
+				printf("%ld %d burned out\n", get_elapsed_ms(sim),
 					sim->coders[i].id);
 				stop_simulation(sim);
 				break ;

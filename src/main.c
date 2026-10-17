@@ -3,10 +3,10 @@
 /*                                                        :::      ::::::::   */
 /*   main.c                                             :+:      :+:    :+:   */
 /*                                                    +:+ +:+         +:+     */
-/*   By: faharila <faharila@student.42antananari    +#+  +:+       +#+        */
+/*   By: faharila <faharila@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2026/09/28 09:46:50 by faharila          #+#    #+#             */
-/*   Updated: 2026/10/12 10:00:20 by faharila         ###   ########.fr       */
+/*   Updated: 2026/10/16 05:55:14 by faharila         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -84,6 +84,7 @@ int	main(int ac, char *av[])
 		return (1);
 	fill_sim(&sim, av);
 	sim.running = 1;
+	sim.start_time = get_timestamp_ms();
 	pthread_mutex_init(&sim.running_lock, NULL);
 	sim.dongles = init_dongles(sim.number_of_coders);
 	sim.coders = init_coders(sim.number_of_coders, sim.dongles, &sim);

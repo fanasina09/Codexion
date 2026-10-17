@@ -3,10 +3,10 @@
 /*                                                        :::      ::::::::   */
 /*   codexion.h                                         :+:      :+:    :+:   */
 /*                                                    +:+ +:+         +:+     */
-/*   By: faharila <faharila@student.42antananari    +#+  +:+       +#+        */
+/*   By: faharila <faharila@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2026/09/28 09:46:07 by faharila          #+#    #+#             */
-/*   Updated: 2026/10/12 09:59:40 by faharila         ###   ########.fr       */
+/*   Updated: 2026/10/16 05:52:43 by faharila         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -53,11 +53,14 @@ typedef struct s_sim
 	int				dongle_cooldown;
 	int				scheduler;
 	int				running;
+	long			start_time;
 	pthread_mutex_t	running_lock;
 	t_dongle		*dongles;
 	t_coder			*coders;
 }					t_sim;
 
+long				get_timestamp_ms(void);
+long				get_elapsed_ms(t_sim *sim);
 int					is_valid_number(char *str);
 int					check_args(int ac, char *av[]);
 void				fill_sim(t_sim *sim, char *av[]);
