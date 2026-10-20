@@ -3,10 +3,10 @@
 /*                                                        :::      ::::::::   */
 /*   cleanup.c                                          :+:      :+:    :+:   */
 /*                                                    +:+ +:+         +:+     */
-/*   By: faharila <faharila@student.42antananari    +#+  +:+       +#+        */
+/*   By: faharila <faharila@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2026/09/28 09:45:37 by faharila          #+#    #+#             */
-/*   Updated: 2026/10/12 09:40:44 by faharila         ###   ########.fr       */
+/*   Updated: 2026/10/20 12:44:34 by faharila         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -14,7 +14,7 @@
 
 void	cleanup(t_sim *sim)
 {
-	int	i;
+	long	i;
 
 	i = 0;
 	while (i < sim->number_of_coders)

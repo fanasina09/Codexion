@@ -6,7 +6,7 @@
 /*   By: faharila <faharila@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2026/09/28 09:46:07 by faharila          #+#    #+#             */
-/*   Updated: 2026/10/16 05:52:43 by faharila         ###   ########.fr       */
+/*   Updated: 2026/10/20 12:46:17 by faharila         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -20,6 +20,7 @@
 # include <sys/time.h>
 # include <time.h>
 # include <unistd.h>
+# include <limits.h>
 
 typedef struct s_dongle
 {
@@ -44,13 +45,13 @@ typedef struct s_coder
 
 typedef struct s_sim
 {
-	int				number_of_coders;
-	int				time_to_burnout;
-	int				time_to_compile;
-	int				time_to_debug;
-	int				time_to_refactor;
-	int				number_of_compiles_required;
-	int				dongle_cooldown;
+	long				number_of_coders;
+	long				time_to_burnout;
+	long				time_to_compile;
+	long				time_to_debug;
+	long				time_to_refactor;
+	long				number_of_compiles_required;
+	long				dongle_cooldown;
 	int				scheduler;
 	int				running;
 	long			start_time;
@@ -73,9 +74,11 @@ void				release_dongle(t_dongle *dongle);
 long				get_timestamp_ms(void);
 void				take_dongle(t_dongle *dongle, t_coder *coder);
 int					is_running(t_sim *sim);
+long				ft_atol(char *str);
 void				stop_simulation(t_sim *sim);
 void				*monitor(void *arg);
 void				cleanup(t_sim *sim);
+void				smart_sleep(t_sim *sim, long duration_ms);
 void				add_to_waiting(t_dongle *dongle, t_coder *coder);
 void				remove_from_waiting(t_dongle *dongle, t_coder *coder);
 long				get_deadline(t_coder *coder);

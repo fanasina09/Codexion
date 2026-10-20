@@ -6,7 +6,7 @@
 /*   By: faharila <faharila@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2026/09/28 09:46:54 by faharila          #+#    #+#             */
-/*   Updated: 2026/10/16 05:59:42 by faharila         ###   ########.fr       */
+/*   Updated: 2026/10/20 12:45:15 by faharila         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -14,7 +14,7 @@
 
 int	all_compiled_enough(t_sim *sim)
 {
-	int	i;
+	long	i;
 
 	i = 0;
 	while (i < sim->number_of_coders)
@@ -29,7 +29,7 @@ int	all_compiled_enough(t_sim *sim)
 void	*monitor(void *arg)
 {
 	t_sim	*sim;
-	int		i;
+	long		i;
 	long	elapsed;
 
 	sim = (t_sim *)arg;
@@ -50,8 +50,11 @@ void	*monitor(void *arg)
 			i++;
 		}
 		if (all_compiled_enough(sim))
+		{
 			stop_simulation(sim);
-		usleep(5000);
+			break ;
+		}
+		usleep(500000);
 	}
 	return (NULL);
 }

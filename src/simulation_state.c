@@ -3,10 +3,10 @@
 /*                                                        :::      ::::::::   */
 /*   simulation_state.c                                 :+:      :+:    :+:   */
 /*                                                    +:+ +:+         +:+     */
-/*   By: faharila <faharila@student.42antananari    +#+  +:+       +#+        */
+/*   By: faharila <faharila@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2026/09/28 10:14:57 by faharila          #+#    #+#             */
-/*   Updated: 2026/10/12 09:52:10 by faharila         ###   ########.fr       */
+/*   Updated: 2026/10/20 12:46:17 by faharila         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -24,7 +24,26 @@ int	is_running(t_sim *sim)
 
 void	stop_simulation(t_sim *sim)
 {
+	long	i;
+
 	pthread_mutex_lock(&sim->running_lock);
 	sim->running = 0;
 	pthread_mutex_unlock(&sim->running_lock);
+	i = 0;
+	while (i < sim->number_of_coders)
+	{
+		pthread_mutex_lock(&sim->dongles[i].is_lock);
+		pthread_cond_broadcast(&sim->dongles[i].is_cond);
+		pthread_mutex_unlock(&sim->dongles[i].is_lock);
+		i++;
+	}
+}
+
+void	smart_sleep(t_sim *sim, long duration_ms)
+{
+	long	start;
+
+	start = get_timestamp_ms();
+	while (is_running(sim) && get_timestamp_ms() - start < duration_ms)
+		usleep(500);
 }

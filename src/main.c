@@ -6,7 +6,7 @@
 /*   By: faharila <faharila@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2026/09/28 09:46:50 by faharila          #+#    #+#             */
-/*   Updated: 2026/10/16 05:55:14 by faharila         ###   ########.fr       */
+/*   Updated: 2026/10/20 12:44:54 by faharila         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -41,13 +41,13 @@ int	check_args(int ac, char *av[])
 
 void	fill_sim(t_sim *sim, char *av[])
 {
-	sim->number_of_coders = atoi(av[1]);
-	sim->time_to_burnout = atoi(av[2]);
-	sim->time_to_compile = atoi(av[3]);
-	sim->time_to_debug = atoi(av[4]);
-	sim->time_to_refactor = atoi(av[5]);
-	sim->number_of_compiles_required = atoi(av[6]);
-	sim->dongle_cooldown = atoi(av[7]);
+	sim->number_of_coders = ft_atol(av[1]);
+	sim->time_to_burnout = ft_atol(av[2]);
+	sim->time_to_compile = ft_atol(av[3]);
+	sim->time_to_debug = ft_atol(av[4]);
+	sim->time_to_refactor = ft_atol(av[5]);
+	sim->number_of_compiles_required = ft_atol(av[6]);
+	sim->dongle_cooldown = ft_atol(av[7]);
 	if (strcmp(av[8], "fifo") == 0)
 		sim->scheduler = 0;
 	else
@@ -57,7 +57,7 @@ void	fill_sim(t_sim *sim, char *av[])
 void	launch_coders(t_sim *sim)
 {
 	pthread_t	monitor_thread;
-	int			i;
+	long			i;
 
 	pthread_create(&monitor_thread, NULL, monitor, sim);
 	i = 0;
@@ -79,6 +79,9 @@ void	launch_coders(t_sim *sim)
 int	main(int ac, char *av[])
 {
 	t_sim	sim;
+
+	if (ac == 1)
+		return (0);
 
 	if (check_args(ac, av))
 		return (1);

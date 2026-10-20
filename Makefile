@@ -6,7 +6,7 @@
 #    By: faharila <faharila@student.42.fr>          +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2026/10/12 11:22:51 by faharila          #+#    #+#              #
-#    Updated: 2026/10/13 14:35:21 by faharila         ###   ########.fr        #
+#    Updated: 2026/10/20 09:22:03 by faharila         ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -18,6 +18,8 @@ CFLAGS = -Wall -Werror -Wextra -pthread
 
 DIRNAME = src
 
+HEADER = $(DIRNAME)/codexion.h
+
 SRC = $(DIRNAME)/cleanup.c $(DIRNAME)/dongle_actions.c $(DIRNAME)/get_timestamp_ms.c $(DIRNAME)/init_coders.c \
 	  $(DIRNAME)/init_dongles.c $(DIRNAME)/main.c $(DIRNAME)/monitor.c $(DIRNAME)/parsing.c $(DIRNAME)/release_dongle.c \
 	  $(DIRNAME)/routine_coder.c $(DIRNAME)/simulation_state.c $(DIRNAME)/take_dongle.c \
@@ -28,10 +30,10 @@ OBJ = $(SRC:.c=.o)
 all: $(NAME)
 
 $(NAME): $(OBJ)
-	ar rcs $(NAME) $(OBJ)
+	$(CC) $(CFLAGS) $(OBJ) -o $(NAME)
 
-%.o: %.c
-	$(CC) $(CFLAGS) -c $< -o$@
+%.o: %.c $(HEADER)
+	$(CC) $(CFLAGS) -I $(DIRNAME) -c $< -o $@
 
 clean:
 	rm -f $(OBJ)
