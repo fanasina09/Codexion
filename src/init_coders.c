@@ -29,6 +29,7 @@ t_coder	*init_coders(int number_of_coders, t_dongle *dongles, t_sim *sim)
 		coders[i].right_dongle = &dongles[(i + 1) % number_of_coders];
 		coders[i].last_compile_and_start = get_timestamp_ms();
 		coders[i].sim = sim;
+		pthread_mutex_init(&coders[i].data_lock, NULL);
 		i++;
 	}
 	return (coders);

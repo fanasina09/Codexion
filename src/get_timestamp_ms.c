@@ -19,3 +19,8 @@ long	get_timestamp_ms(void)
 	gettimeofday(&tv, NULL);
 	return (tv.tv_sec * 1000L + tv.tv_usec / 1000L);
 }
+
+long	get_elapsed_ms(t_sim *sim)
+{
+	return (get_timestamp_ms() - sim->start_time);
+}

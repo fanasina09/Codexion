@@ -3,10 +3,10 @@
 /*                                                        :::      ::::::::   */
 /*   simulation_state.c                                 :+:      :+:    :+:   */
 /*                                                    +:+ +:+         +:+     */
-/*   By: faharila <faharila@student.42.fr>          +#+  +:+       +#+        */
+/*   By: faharila <faharila@student.42antananari    +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2026/09/28 10:14:57 by faharila          #+#    #+#             */
-/*   Updated: 2026/10/20 12:46:17 by faharila         ###   ########.fr       */
+/*   Updated: 2026/10/12 09:52:10 by faharila         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -24,7 +24,7 @@ int	is_running(t_sim *sim)
 
 void	stop_simulation(t_sim *sim)
 {
-	long	i;
+	int	i;
 
 	pthread_mutex_lock(&sim->running_lock);
 	sim->running = 0;

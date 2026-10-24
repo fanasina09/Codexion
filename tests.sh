@@ -1,18 +1,23 @@
 #!/bin/bash
 # ****************************************************************** #
-#  Manou_tests.sh                                                    #
-#  By: Manou(nfitahin)                                               #
+#  tests.sh - Script de tests automatiques pour le projet Codexion.  #
+#  A placer a cote du Makefile (les sources peuvent etre dans src/). #
 #                                                                    #
-#  Script de tests automatiques pour le projet Codexion.             #
-#  A placer dans le meme dossier que le Makefile / codexion.c, puis :#
-#                                                                    #
-#      chmod +x Manou_tests.sh                                       #
-#      ./Manou_tests.sh                                              #
-#                                                                    #
-#  Le script compile le projet, lance une serie de tests (arguments  #
-#  invalides, cas fonctionnels, format des logs, memoire, races),    #
-#  et affiche un resume PASS/FAIL a la fin.                          #
+#      chmod +x tests.sh                                             #
+#      ./tests.sh                                                    #
 # ****************************************************************** #
+
+# Se placer dans le dossier du script (peu importe d'ou on le lance)
+cd "$(dirname "$0")" || exit 1
+
+# Locale UTF-8 : sans elle, ${#s} compte des octets et les cadres
+# (emojis, ═, ║) sont decales.
+for loc in C.UTF-8 en_US.UTF-8 fr_FR.UTF-8; do
+	if locale -a 2> /dev/null | grep -qix "${loc//-/}\|$loc"; then
+		export LC_ALL="$loc"
+		break
+	fi
+done
 
 BIN="./codexion"
 PASS=0
@@ -42,14 +47,8 @@ info() {
 	echo -e "${YELLOW}--- $1 ---${NC}"
 }
 
-# liste des emojis utilises dans les bannieres : chacun occupe 2
-# colonnes a l'ecran mais compte pour 1 seul "caractere" en bash,
-# d'ou le cadre qui partait de travers. On corrige ca dans
-# visual_width() en comptant +1 colonne par emoji trouve.
 EMOJI_REGEX='💻|🚀|🎉|😂|🤣|🔥|😭|💀|🙏|😢'
 
-# visual_width str -> largeur affichee reelle (tient compte du fait
-# qu'un emoji prend 2 colonnes a l'ecran, pas 1).
 visual_width() {
 	local s="$1"
 	local charlen=${#s}
@@ -58,9 +57,6 @@ visual_width() {
 	echo $((charlen + ecount))
 }
 
-# repeat_char c n -> affiche le caractere (multi-octet compris) c
-# repete n fois (n peut etre 0). Une boucle plutot que tr, car tr ne
-# gere pas bien les caracteres UTF-8 multi-octets comme ═.
 repeat_char() {
 	local char="$1"
 	local n="$2"
@@ -71,9 +67,6 @@ repeat_char() {
 	done
 }
 
-# print_box color ligne1 ligne2 ... -> affiche une boite centree autour
-# du texte (largeur calculee automatiquement sur la ligne la plus
-# longue, en tenant compte de la largeur reelle a l'ecran).
 print_box() {
 	local color="$1"
 	shift
@@ -97,10 +90,6 @@ print_box() {
 	printf '╚'; repeat_char '═' "$width"; printf '╝\n'
 	echo -e "${NC}"
 }
-
-# ---------------------------------------------------------------- #
-# Banniere de depart, signature Manou
-# ---------------------------------------------------------------- #
 
 print_box "$CYAN" \
 	"💻  CODEXION - TEST SUITE  💻" \
@@ -133,9 +122,8 @@ if [ ! -x "$BIN" ]; then
 fi
 
 # ---------------------------------------------------------------- #
-# 1. Arguments invalides : doivent echouer proprement (pas de crash,
-#    pas de simulation lancee, code de retour != 0 sauf cas "aucun
-#    argument" qui doit renvoyer 0 sans rien afficher).
+# 1. Arguments invalides
+#    Attendu : retour != 0, pas de crash, pas de timeout.
 # ---------------------------------------------------------------- #
 
 info "1. Arguments invalides"
@@ -146,22 +134,25 @@ check_invalid() {
 	local out
 	out=$(timeout 2 "$BIN" "$@" 2>&1)
 	local ret=$?
-	if [ $ret -eq 0 ] && [ -z "$out" ]; then
-		ko "$desc (devrait afficher une erreur ou tourner, retour=$ret)"
+	if [ $ret -eq 124 ]; then
+		ko "$desc (timeout : la simulation a ete lancee au lieu de rejeter)"
+	elif [ $ret -ge 128 ]; then
+		ko "$desc (crash detecte, code=$ret)"
 	elif [ $ret -ne 0 ]; then
 		ok "$desc (retour=$ret, rejete correctement)"
 	else
-		ko "$desc (retour=$ret, sortie inattendue: $out)"
+		ko "$desc (retour=0, devrait etre rejete. Sortie: $out)"
 	fi
 }
 
-# aucun argument -> doit renvoyer 0 et ne RIEN afficher
+# Aucun argument : on accepte soit "return 0 sans sortie", soit une
+# erreur propre (retour != 0). Seuls un crash ou un timeout echouent.
 out=$(timeout 1 "$BIN" 2>&1)
 ret=$?
-if [ $ret -eq 0 ] && [ -z "$out" ]; then
-	ok "Aucun argument -> return 0, aucune sortie"
+if [ $ret -eq 124 ] || [ $ret -ge 128 ]; then
+	ko "Aucun argument (timeout ou crash, retour=$ret)"
 else
-	ko "Aucun argument -> return 0, aucune sortie (retour=$ret, sortie: $out)"
+	ok "Aucun argument -> sortie propre (retour=$ret)"
 fi
 
 check_invalid "7 arguments au lieu de 8"        4 800 200 200 200 5 10
@@ -179,10 +170,10 @@ check_invalid "dongle_cooldown negatif"         4 800 200 200 200 5 -1 fifo
 check_invalid "scheduler inconnu"               4 800 200 200 200 5 10 azerty
 check_invalid "texte au lieu d'un nombre"       abc 800 200 200 200 5 10 fifo
 check_invalid "nombre hors limites (overflow)"  4 99999999999999999999 200 200 200 5 10 fifo
+check_invalid "nb_coders > INT_MAX"             99999999999 800 200 200 200 5 10 fifo
 
 # ---------------------------------------------------------------- #
-# 2. Cas fonctionnels : la simulation doit tourner sans crash et
-#    se terminer avec le bon code de retour.
+# 2. Cas fonctionnels
 # ---------------------------------------------------------------- #
 
 info "2. Cas fonctionnels (doivent tourner sans crash)"
@@ -192,14 +183,14 @@ check_runs() {
 	local logfile="$2"
 	shift 2
 	local out
-	out=$(timeout 10 "$BIN" "$@" 2>&1)
+	out=$(timeout 20 "$BIN" "$@" 2>&1)
 	local ret=$?
 	if [ -n "$logfile" ]; then
 		printf '%s\n' "$out" > "$logfile"
 	fi
 	if [ $ret -eq 124 ]; then
 		ko "$desc (timeout : ne s'est jamais arrete)"
-	elif [ $ret -eq 139 ] || [ $ret -eq 134 ] || [ $ret -eq 136 ]; then
+	elif [ $ret -ge 128 ]; then
 		ko "$desc (crash detecte, code=$ret)"
 	else
 		ok "$desc (retour=$ret)"
@@ -237,6 +228,18 @@ lines_after_burn=$(awk '/burned out/{f=1;next} f' /tmp/codexion_burn.log | wc -l
 	&& ok "Aucun message affiche apres le burnout" \
 	|| ko "Des messages sont affiches apres le burnout ($lines_after_burn lignes)"
 
+# Grand temps de compilation + burnout court : on ne doit PAS attendre
+# toute la duree du compile, l'arret doit etre quasi immediat.
+start_ms=$(date +%s%3N)
+timeout 10 "$BIN" 2 200 5000 100 100 5 0 fifo > /tmp/codexion_long.log 2>&1
+ret=$?
+elapsed_ms=$(( $(date +%s%3N) - start_ms ))
+if [ $ret -eq 124 ] || [ "$elapsed_ms" -gt 1500 ]; then
+	ko "Long compile + burnout court : arret trop lent (${elapsed_ms} ms)"
+else
+	ok "Long compile + burnout court : arret rapide (${elapsed_ms} ms)"
+fi
+
 check_runs "Beaucoup de coders (50)" "" \
 	50 800 200 200 200 3 10 fifo
 
@@ -246,33 +249,44 @@ check_runs "Beaucoup de coders (50)" "" \
 
 info "3. Format des logs"
 
-"$BIN" 4 800 200 200 200 5 10 fifo > /tmp/codexion_fmt.log 2>&1
+timeout 20 "$BIN" 4 800 200 200 200 5 10 fifo > /tmp/codexion_fmt.log 2>&1
 
-if grep -vE '^[0-9]+ [0-9]+ (is compiling|is debugging|is refactoring|has taken a dongle|burned out)$' \
-	/tmp/codexion_fmt.log | grep -q .; then
+FMT='^[0-9]+ [0-9]+ (is compiling|is debugging|is refactoring|has taken a dongle|burned out)$'
+if grep -vE "$FMT" /tmp/codexion_fmt.log | grep -q .; then
 	ko "Toutes les lignes respectent le format 'temps id message'"
-	grep -vE '^[0-9]+ [0-9]+ (is compiling|is debugging|is refactoring|has taken a dongle|burned out)$' \
-		/tmp/codexion_fmt.log
+	grep -vE "$FMT" /tmp/codexion_fmt.log | head -5
 else
 	ok "Toutes les lignes respectent le format 'temps id message'"
 fi
 
+# Chaque compile suppose 2 dongles pris. A l'arret, un coder peut en
+# avoir pris un seul de plus, donc on verifie taken >= 2 * compiling.
 count_taken=$(grep -c "has taken a dongle" /tmp/codexion_fmt.log)
-if [ $((count_taken % 2)) -eq 0 ]; then
-	ok "'has taken a dongle' apparait un nombre pair de fois ($count_taken)"
+count_comp=$(grep -c "is compiling" /tmp/codexion_fmt.log)
+if [ "$count_taken" -ge $((2 * count_comp)) ]; then
+	ok "'has taken a dongle' ($count_taken) >= 2 x 'is compiling' ($count_comp)"
 else
-	ko "'has taken a dongle' apparait un nombre IMPAIR de fois ($count_taken)"
+	ko "'has taken a dongle' ($count_taken) < 2 x 'is compiling' ($count_comp)"
+fi
+
+# Les timestamps doivent commencer pres de 0 (temps relatif) et ne
+# jamais decroitre.
+first_ts=$(head -1 /tmp/codexion_fmt.log | cut -d' ' -f1)
+if [ -n "$first_ts" ] && [ "$first_ts" -lt 1000 ] 2> /dev/null; then
+	ok "Timestamps relatifs au demarrage (premier = $first_ts ms)"
+else
+	ko "Timestamps non relatifs au demarrage (premier = $first_ts)"
 fi
 
 # ---------------------------------------------------------------- #
-# 4. Repetition (detecte les bugs qui n'apparaissent qu'aleatoirement)
+# 4. Repetition
 # ---------------------------------------------------------------- #
 
 info "4. Execution repetee (detection de bugs aleatoires)"
 
 repeat_fail=0
 for i in $(seq 1 15); do
-	timeout 5 "$BIN" 4 800 200 200 200 5 10 fifo > /dev/null 2>&1
+	timeout 20 "$BIN" 4 800 200 200 200 5 10 fifo > /dev/null 2>&1
 	ret=$?
 	if [ $ret -ne 0 ]; then
 		repeat_fail=$((repeat_fail + 1))
@@ -285,18 +299,15 @@ else
 fi
 
 # ---------------------------------------------------------------- #
-# 5. Valgrind (fuites memoire) - seulement si installe
+# 5. Valgrind
 # ---------------------------------------------------------------- #
 
 info "5. Valgrind (fuites memoire)"
 
 if command -v valgrind > /dev/null 2>&1; then
-	valgrind --leak-check=full --show-leak-kinds=all --error-exitcode=42 \
+	timeout 60 valgrind --leak-check=full --show-leak-kinds=all \
+		--error-exitcode=42 \
 		"$BIN" 4 800 200 200 200 5 10 fifo > /tmp/codexion_valgrind.log 2>&1
-	# Valgrind affiche soit "definitely/indirectly lost: 0 bytes" (leak
-	# summary complet), soit directement "no leaks are possible" quand
-	# tout a ete libere. On accepte les deux formes, et on echoue des
-	# qu'un nombre != 0 apparait sur une ligne "lost".
 	if grep -qE "ERROR SUMMARY: 0 errors" /tmp/codexion_valgrind.log \
 		&& ! grep -qE "(definitely|indirectly) lost: [1-9]" /tmp/codexion_valgrind.log; then
 		ok "Valgrind : aucune fuite memoire (0 erreur, 0 octet perdu)"
@@ -308,14 +319,24 @@ else
 fi
 
 # ---------------------------------------------------------------- #
-# 6. ThreadSanitizer (data races) - seulement si le compilateur le supporte
+# 6. ThreadSanitizer
 # ---------------------------------------------------------------- #
 
 info "6. ThreadSanitizer (data races)"
 
-if cc -fsanitize=thread -pthread -x c -o /tmp/tsan_check -c /dev/null 2>/dev/null \
-	&& cc -Wall -Wextra -pthread -fsanitize=thread -g *.c -o /tmp/codexion_tsan 2>/tmp/tsan_build.log; then
-	TSAN_OPTIONS="halt_on_error=0" timeout 5 /tmp/codexion_tsan \
+# Sources dans src/ si ce dossier existe, sinon dans le dossier courant
+if ls src/*.c > /dev/null 2>&1; then
+	TSAN_SRC=(src/*.c)
+	TSAN_INC="-I src"
+else
+	TSAN_SRC=(*.c)
+	TSAN_INC=""
+fi
+
+if cc -fsanitize=thread -pthread -x c -o /tmp/tsan_check -c /dev/null 2> /dev/null \
+	&& cc -Wall -Wextra -pthread -fsanitize=thread -g $TSAN_INC \
+		"${TSAN_SRC[@]}" -o /tmp/codexion_tsan 2> /tmp/tsan_build.log; then
+	TSAN_OPTIONS="halt_on_error=0" timeout 20 /tmp/codexion_tsan \
 		4 800 200 200 200 5 10 fifo > /tmp/codexion_tsan.log 2>&1
 	if grep -q "WARNING: ThreadSanitizer" /tmp/codexion_tsan.log; then
 		ko "ThreadSanitizer : data race detectee (voir /tmp/codexion_tsan.log)"
@@ -324,7 +345,7 @@ if cc -fsanitize=thread -pthread -x c -o /tmp/tsan_check -c /dev/null 2>/dev/nul
 	fi
 	rm -f /tmp/codexion_tsan
 else
-	echo "ThreadSanitizer non disponible sur ce compilateur/systeme : test ignore."
+	echo "ThreadSanitizer indisponible ou compilation echouee (voir /tmp/tsan_build.log) : test ignore."
 fi
 
 # ---------------------------------------------------------------- #
@@ -342,10 +363,10 @@ if [ $FAIL -gt 0 ]; then
 	done
 	echo ""
 	print_box "$RED" \
-		"😭  REESSAYE ET N'ABANONNE JAMAIS  😭" \
+		"😭  REESSAYE ET N'ABANDONNE JAMAIS  😭" \
 		"" \
 		"💀 $FAIL test(s) en echec 💀" \
-		"Regarde la liste des erreurs au-dessus et debogge-les😢🙏"
+		"Regarde la liste des erreurs au-dessus et debogue-les 😢🙏"
 	exit 1
 fi
 

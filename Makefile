@@ -6,7 +6,7 @@
 #    By: faharila <faharila@student.42.fr>          +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2026/10/12 11:22:51 by faharila          #+#    #+#              #
-#    Updated: 2026/10/20 09:22:03 by faharila         ###   ########.fr        #
+#    Updated: 2026/10/13 14:35:21 by faharila         ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -20,10 +20,12 @@ DIRNAME = src
 
 HEADER = $(DIRNAME)/codexion.h
 
-SRC = $(DIRNAME)/cleanup.c $(DIRNAME)/dongle_actions.c $(DIRNAME)/get_timestamp_ms.c $(DIRNAME)/init_coders.c \
-	  $(DIRNAME)/init_dongles.c $(DIRNAME)/main.c $(DIRNAME)/monitor.c $(DIRNAME)/parsing.c $(DIRNAME)/release_dongle.c \
-	  $(DIRNAME)/routine_coder.c $(DIRNAME)/simulation_state.c $(DIRNAME)/take_dongle.c \
-	  $(DIRNAME)/waiting_queue.c
+SRC = $(DIRNAME)/cleanup.c $(DIRNAME)/coder_state.c \
+	  $(DIRNAME)/get_timestamp_ms.c $(DIRNAME)/init_coders.c \
+	  $(DIRNAME)/init_dongles.c $(DIRNAME)/main.c $(DIRNAME)/monitor.c \
+	  $(DIRNAME)/parsing.c $(DIRNAME)/print.c $(DIRNAME)/release_dongle.c \
+	  $(DIRNAME)/routine_coder.c $(DIRNAME)/simulation_state.c \
+	  $(DIRNAME)/take_dongle.c $(DIRNAME)/waiting_queue.c
 
 OBJ = $(SRC:.c=.o)
 

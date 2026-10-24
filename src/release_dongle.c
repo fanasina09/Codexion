@@ -17,6 +17,6 @@ void	release_dongle(t_dongle *dongle)
 	pthread_mutex_lock(&dongle->is_lock);
 	dongle->is_taken = 0;
 	dongle->released_at = get_timestamp_ms();
-	pthread_cond_signal(&dongle->is_cond);
+	pthread_cond_broadcast(&dongle->is_cond);
 	pthread_mutex_unlock(&dongle->is_lock);
 }

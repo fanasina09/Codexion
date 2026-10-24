@@ -37,7 +37,12 @@ void	remove_from_waiting(t_dongle *dongle, t_coder *coder)
 
 long	get_deadline(t_coder *coder)
 {
-	return (coder->last_compile_and_start + coder->sim->time_to_burnout);
+	long	last;
+
+	last = get_last_compile(coder);
+	if (coder->sim->time_to_burnout > LONG_MAX - last)
+		return (LONG_MAX);
+	return (last + coder->sim->time_to_burnout);
 }
 
 t_coder	*get_next_coder(t_dongle *dongle, int scheduler)

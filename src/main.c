@@ -3,62 +3,34 @@
 /*                                                        :::      ::::::::   */
 /*   main.c                                             :+:      :+:    :+:   */
 /*                                                    +:+ +:+         +:+     */
-/*   By: faharila <faharila@student.42.fr>          +#+  +:+       +#+        */
+/*   By: faharila <faharila@student.42antananari    +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2026/09/28 09:46:50 by faharila          #+#    #+#             */
-/*   Updated: 2026/10/20 12:44:54 by faharila         ###   ########.fr       */
+/*   Updated: 2026/10/12 10:00:20 by faharila         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
 #include "codexion.h"
 
-int	check_args(int ac, char *av[])
+static void	init_start(t_sim *sim)
 {
 	int	i;
 
-	if (ac != 9)
+	sim->start_time = get_timestamp_ms();
+	i = 0;
+	while (i < sim->number_of_coders)
 	{
-		fprintf(stderr, "Error: wrong number of arguments\n");
-		return (1);
-	}
-	i = 1;
-	while (i < 8)
-	{
-		if (!is_valid_number(av[i]))
-		{
-			fprintf(stderr, "Error: invalid argument\n");
-			return (1);
-		}
+		sim->coders[i].last_compile_and_start = sim->start_time;
 		i++;
 	}
-	if (strcmp(av[8], "fifo") != 0 && strcmp(av[8], "edf") != 0)
-	{
-		fprintf(stderr, "Error: invalid scheduler\n");
-		return (1);
-	}
-	return (0);
-}
-
-void	fill_sim(t_sim *sim, char *av[])
-{
-	sim->number_of_coders = ft_atol(av[1]);
-	sim->time_to_burnout = ft_atol(av[2]);
-	sim->time_to_compile = ft_atol(av[3]);
-	sim->time_to_debug = ft_atol(av[4]);
-	sim->time_to_refactor = ft_atol(av[5]);
-	sim->number_of_compiles_required = ft_atol(av[6]);
-	sim->dongle_cooldown = ft_atol(av[7]);
-	if (strcmp(av[8], "fifo") == 0)
-		sim->scheduler = 0;
-	else
-		sim->scheduler = 1;
 }
 
 void	launch_coders(t_sim *sim)
 {
 	pthread_t	monitor_thread;
-	long			i;
+	int			i;
 
+	init_start(sim);
 	pthread_create(&monitor_thread, NULL, monitor, sim);
 	i = 0;
 	while (i < sim->number_of_coders)
@@ -76,23 +48,32 @@ void	launch_coders(t_sim *sim)
 	pthread_join(monitor_thread, NULL);
 }
 
+static int	init_sim(t_sim *sim)
+{
+	sim->running = 1;
+	pthread_mutex_init(&sim->running_lock, NULL);
+	pthread_mutex_init(&sim->print_lock, NULL);
+	sim->dongles = init_dongles(sim->number_of_coders);
+	if (!sim->dongles)
+		return (1);
+	sim->coders = init_coders(sim->number_of_coders, sim->dongles, sim);
+	if (!sim->coders)
+	{
+		free(sim->dongles);
+		return (1);
+	}
+	return (0);
+}
+
 int	main(int ac, char *av[])
 {
 	t_sim	sim;
 
-	if (ac == 1)
-		return (0);
-
 	if (check_args(ac, av))
 		return (1);
 	fill_sim(&sim, av);
-	sim.running = 1;
-	sim.start_time = get_timestamp_ms();
-	pthread_mutex_init(&sim.running_lock, NULL);
-	sim.dongles = init_dongles(sim.number_of_coders);
-	sim.coders = init_coders(sim.number_of_coders, sim.dongles, &sim);
-	printf("Coder 1 : id=%d, left=%p, right=%p\n", sim.coders[0].id,
-		(void *)sim.coders[0].left_dongle, (void *)sim.coders[0].right_dongle);
+	if (init_sim(&sim))
+		return (1);
 	launch_coders(&sim);
 	cleanup(&sim);
 	return (0);
