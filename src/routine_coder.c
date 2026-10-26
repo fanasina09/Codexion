@@ -43,6 +43,12 @@ static int	compile_step(t_coder *coder)
 	return (is_running(sim));
 }
 
+static void	stagger_start(t_coder *coder)
+{
+	if (coder->id % 2 == 0)
+		smart_sleep(coder->sim, coder->sim->time_to_compile / 2);
+}
+
 void	*routine_coder(void *arg)
 {
 	t_coder	*coder;
@@ -50,6 +56,7 @@ void	*routine_coder(void *arg)
 
 	coder = (t_coder *)arg;
 	sim = coder->sim;
+	stagger_start(coder);
 	while (is_running(sim)
 		&& get_compiles(coder) < sim->number_of_compiles_required)
 	{

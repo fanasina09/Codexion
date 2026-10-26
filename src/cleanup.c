@@ -19,12 +19,10 @@ void	cleanup(t_sim *sim)
 	i = 0;
 	while (i < sim->number_of_coders)
 	{
-		pthread_mutex_destroy(&sim->dongles[i].is_lock);
-		pthread_cond_destroy(&sim->dongles[i].is_cond);
 		pthread_mutex_destroy(&sim->coders[i].data_lock);
 		i++;
 	}
-	free(sim->dongles);
+	destroy_dongles(sim->dongles, sim->number_of_coders);
 	free(sim->coders);
 	pthread_mutex_destroy(&sim->running_lock);
 	pthread_mutex_destroy(&sim->print_lock);

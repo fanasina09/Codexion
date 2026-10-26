@@ -3,37 +3,14 @@
 /*                                                        :::      ::::::::   */
 /*   waiting_queue.c                                    :+:      :+:    :+:   */
 /*                                                    +:+ +:+         +:+     */
-/*   By: faharila <faharila@student.42antananari    +#+  +:+       +#+        */
+/*   By: faharila <faharila@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2026/09/28 10:14:28 by faharila          #+#    #+#             */
-/*   Updated: 2026/10/12 09:52:43 by faharila         ###   ########.fr       */
+/*   Updated: 2026/10/26 10:32:26 by faharila         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
 #include "codexion.h"
-
-void	add_to_waiting(t_dongle *dongle, t_coder *coder)
-{
-	dongle->waiting[dongle->nb_waiting] = coder;
-	dongle->nb_waiting++;
-}
-
-void	remove_from_waiting(t_dongle *dongle, t_coder *coder)
-{
-	int	i;
-	int	j;
-
-	i = 0;
-	while (i < dongle->nb_waiting && dongle->waiting[i] != coder)
-		i++;
-	j = i;
-	while (j < dongle->nb_waiting - 1)
-	{
-		dongle->waiting[j] = dongle->waiting[j + 1];
-		j++;
-	}
-	dongle->nb_waiting--;
-}
 
 long	get_deadline(t_coder *coder)
 {
@@ -45,22 +22,26 @@ long	get_deadline(t_coder *coder)
 	return (last + coder->sim->time_to_burnout);
 }
 
-t_coder	*get_next_coder(t_dongle *dongle, int scheduler)
+int	add_to_waiting(t_dongle *dongle, t_coder *coder)
 {
-	int		i;
-	t_coder	*best;
+	t_heap_node	node;
 
-	if (dongle->nb_waiting == 0)
-		return (NULL);
-	best = dongle->waiting[0];
-	if (scheduler == 0)
-		return (best);
-	i = 1;
-	while (i < dongle->nb_waiting)
-	{
-		if (get_deadline(dongle->waiting[i]) < get_deadline(best))
-			best = dongle->waiting[i];
-		i++;
-	}
-	return (best);
+	node.coder = coder;
+	node.seq = dongle->next_seq;
+	dongle->next_seq++;
+	if (coder->sim->scheduler == SCHED_EDF_ID)
+		node.key = get_deadline(coder);
+	else
+		node.key = node.seq;
+	return (heap_push(&dongle->waiting, node));
+}
+
+void	remove_from_waiting(t_dongle *dongle, t_coder *coder)
+{
+	heap_remove(&dongle->waiting, coder);
+}
+
+t_coder	*get_next_coder(t_dongle *dongle)
+{
+	return (heap_peek(&dongle->waiting));
 }

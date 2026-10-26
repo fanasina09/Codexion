@@ -97,7 +97,7 @@ void	fill_sim(t_sim *sim, char *av[])
 	sim->number_of_compiles_required = ft_atol(av[6]);
 	sim->dongle_cooldown = ft_atol(av[7]);
 	if (strcmp(av[8], "fifo") == 0)
-		sim->scheduler = 0;
+		sim->scheduler = SCHED_FIFO_ID;
 	else
-		sim->scheduler = 1;
+		sim->scheduler = SCHED_EDF_ID;
 }

@@ -12,6 +12,30 @@
 
 #include "codexion.h"
 
+static int	init_one(t_dongle *dongle)
+{
+	dongle->is_taken = 0;
+	dongle->released_at = 0;
+	dongle->next_seq = 0;
+	if (!heap_init(&dongle->waiting, 2))
+		return (0);
+	pthread_mutex_init(&dongle->is_lock, NULL);
+	pthread_cond_init(&dongle->is_cond, NULL);
+	return (1);
+}
+
+void	destroy_dongles(t_dongle *dongles, int count)
+{
+	while (count > 0)
+	{
+		count--;
+		pthread_mutex_destroy(&dongles[count].is_lock);
+		pthread_cond_destroy(&dongles[count].is_cond);
+		heap_destroy(&dongles[count].waiting);
+	}
+	free(dongles);
+}
+
 t_dongle	*init_dongles(int number_of_coders)
 {
 	t_dongle	*dongles;
@@ -23,11 +47,11 @@ t_dongle	*init_dongles(int number_of_coders)
 	i = 0;
 	while (i < number_of_coders)
 	{
-		dongles[i].is_taken = 0;
-		dongles[i].released_at = 0;
-		dongles[i].nb_waiting = 0;
-		pthread_mutex_init(&dongles[i].is_lock, NULL);
-		pthread_cond_init(&dongles[i].is_cond, NULL);
+		if (!init_one(&dongles[i]))
+		{
+			destroy_dongles(dongles, i);
+			return (NULL);
+		}
 		i++;
 	}
 	return (dongles);

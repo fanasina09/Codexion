@@ -59,7 +59,7 @@ static int	init_sim(t_sim *sim)
 	sim->coders = init_coders(sim->number_of_coders, sim->dongles, sim);
 	if (!sim->coders)
 	{
-		free(sim->dongles);
+		destroy_dongles(sim->dongles, sim->number_of_coders);
 		return (1);
 	}
 	return (0);

@@ -3,10 +3,10 @@
 /*                                                        :::      ::::::::   */
 /*   codexion.h                                         :+:      :+:    :+:   */
 /*                                                    +:+ +:+         +:+     */
-/*   By: faharila <faharila@student.42antananari    +#+  +:+       +#+        */
+/*   By: faharila <faharila@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2026/09/28 09:46:07 by faharila          #+#    #+#             */
-/*   Updated: 2026/10/12 09:59:40 by faharila         ###   ########.fr       */
+/*   Updated: 2026/10/26 06:49:34 by faharila         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -21,21 +21,25 @@
 # include <sys/time.h>
 # include <time.h>
 # include <unistd.h>
+# include "heap.h"
+
+# define SCHED_FIFO_ID 0
+# define SCHED_EDF_ID 1
 
 typedef struct s_dongle
 {
 	int				is_taken;
 	pthread_mutex_t	is_lock;
 	pthread_cond_t	is_cond;
-	struct s_coder	*waiting[2];
-	int				nb_waiting;
+	t_heap			waiting;
+	long			next_seq;
 	long			released_at;
 }					t_dongle;
 
 typedef struct s_coder
 {
 	int				id;
-	int				nb_compliles;
+	int				nb_compiles;
 	t_dongle		*left_dongle;
 	t_dongle		*right_dongle;
 	pthread_t		thread;
@@ -67,6 +71,7 @@ long				ft_atol(char *str);
 int					check_args(int ac, char *av[]);
 void				fill_sim(t_sim *sim, char *av[]);
 t_dongle			*init_dongles(int number_of_coders);
+void				destroy_dongles(t_dongle *dongles, int count);
 t_coder				*init_coders(int number_of_coders, t_dongle *dongles,
 						t_sim *sim);
 void				*routine_coder(void *arg);
@@ -86,9 +91,9 @@ int					get_compiles(t_coder *coder);
 void				add_compile(t_coder *coder);
 void				*monitor(void *arg);
 void				cleanup(t_sim *sim);
-void				add_to_waiting(t_dongle *dongle, t_coder *coder);
+int					add_to_waiting(t_dongle *dongle, t_coder *coder);
 void				remove_from_waiting(t_dongle *dongle, t_coder *coder);
 long				get_deadline(t_coder *coder);
-t_coder				*get_next_coder(t_dongle *dongle, int scheduler);
+t_coder				*get_next_coder(t_dongle *dongle);
 
 #endif

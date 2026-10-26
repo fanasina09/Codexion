@@ -32,7 +32,7 @@ static int	must_wait(t_dongle *dongle, t_coder *coder)
 {
 	if (dongle->is_taken == 1)
 		return (1);
-	if (get_next_coder(dongle, coder->sim->scheduler) != coder)
+	if (get_next_coder(dongle) != coder)
 		return (1);
 	return (get_timestamp_ms() - dongle->released_at
 		< coder->sim->dongle_cooldown);
@@ -41,7 +41,12 @@ static int	must_wait(t_dongle *dongle, t_coder *coder)
 void	take_dongle(t_dongle *dongle, t_coder *coder)
 {
 	pthread_mutex_lock(&dongle->is_lock);
-	add_to_waiting(dongle, coder);
+	if (!add_to_waiting(dongle, coder))
+	{
+		pthread_mutex_unlock(&dongle->is_lock);
+		stop_simulation(coder->sim);
+		return ;
+	}
 	while (is_running(coder->sim) && must_wait(dongle, coder))
 		wait_dongle(dongle);
 	remove_from_waiting(dongle, coder);
