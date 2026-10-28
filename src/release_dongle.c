@@ -3,10 +3,10 @@
 /*                                                        :::      ::::::::   */
 /*   release_dongle.c                                   :+:      :+:    :+:   */
 /*                                                    +:+ +:+         +:+     */
-/*   By: faharila <faharila@student.42antananari    +#+  +:+       +#+        */
+/*   By: faharila <faharila@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2026/09/28 09:48:27 by faharila          #+#    #+#             */
-/*   Updated: 2026/10/12 09:52:27 by faharila         ###   ########.fr       */
+/*   Updated: 2026/10/28 00:23:57 by faharila         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 

@@ -69,6 +69,8 @@ int	main(int ac, char *av[])
 {
 	t_sim	sim;
 
+	if (ac == 1)
+		return (0);
 	if (check_args(ac, av))
 		return (1);
 	fill_sim(&sim, av);

@@ -6,7 +6,7 @@
 /*   By: faharila <faharila@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2026/09/28 09:46:07 by faharila          #+#    #+#             */
-/*   Updated: 2026/10/26 06:49:34 by faharila         ###   ########.fr       */
+/*   Updated: 2026/10/28 09:05:19 by faharila         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -23,8 +23,12 @@
 # include <unistd.h>
 # include "heap.h"
 
-# define SCHED_FIFO_ID 0
-# define SCHED_EDF_ID 1
+typedef enum e_scheduler
+{
+	SCHEDULER_FIFO,
+	SCHEDULER_EDF,
+	SCHEDULER_UNKNOWN
+}					t_scheduler;
 
 typedef struct s_dongle
 {
@@ -57,7 +61,7 @@ typedef struct s_sim
 	long			time_to_refactor;
 	long			number_of_compiles_required;
 	long			dongle_cooldown;
-	int				scheduler;
+	t_scheduler		scheduler;
 	int				running;
 	long			start_time;
 	pthread_mutex_t	running_lock;
@@ -82,6 +86,7 @@ long				get_elapsed_ms(t_sim *sim);
 void				take_dongle(t_dongle *dongle, t_coder *coder);
 int					is_running(t_sim *sim);
 void				stop_simulation(t_sim *sim);
+t_scheduler			get_scheduler(char *str);
 void				smart_sleep(t_sim *sim, long duration_ms);
 void				print_status(t_coder *coder, char *msg);
 void				print_burnout(t_sim *sim, int id);

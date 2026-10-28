@@ -6,7 +6,7 @@
 /*   By: faharila <faharila@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2026/09/28 10:14:28 by faharila          #+#    #+#             */
-/*   Updated: 2026/10/26 10:32:26 by faharila         ###   ########.fr       */
+/*   Updated: 2026/10/28 09:04:54 by faharila         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -22,6 +22,13 @@ long	get_deadline(t_coder *coder)
 	return (last + coder->sim->time_to_burnout);
 }
 
+static long	get_key(t_coder *coder, long seq)
+{
+	if (coder->sim->scheduler == SCHEDULER_EDF)
+		return (get_deadline(coder));
+	return (seq);
+}
+
 int	add_to_waiting(t_dongle *dongle, t_coder *coder)
 {
 	t_heap_node	node;
@@ -29,10 +36,7 @@ int	add_to_waiting(t_dongle *dongle, t_coder *coder)
 	node.coder = coder;
 	node.seq = dongle->next_seq;
 	dongle->next_seq++;
-	if (coder->sim->scheduler == SCHED_EDF_ID)
-		node.key = get_deadline(coder);
-	else
-		node.key = node.seq;
+	node.key = get_key(coder, node.seq);
 	return (heap_push(&dongle->waiting, node));
 }
 

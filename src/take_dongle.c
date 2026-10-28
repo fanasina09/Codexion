@@ -3,29 +3,25 @@
 /*                                                        :::      ::::::::   */
 /*   take_dongle.c                                      :+:      :+:    :+:   */
 /*                                                    +:+ +:+         +:+     */
-/*   By: faharila <faharila@student.42antananari    +#+  +:+       +#+        */
+/*   By: faharila <faharila@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2026/09/28 10:14:34 by faharila          #+#    #+#             */
-/*   Updated: 2026/09/28 10:14:53 by faharila         ###   ########.fr       */
+/*   Updated: 2026/10/28 06:02:42 by faharila         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
 #include "codexion.h"
 
-static void	wait_dongle(t_dongle *dongle)
+static void	wait_dongle(t_dongle *dongle, t_coder *coder)
 {
-	struct timeval	tv;
-	struct timespec	ts;
-
-	gettimeofday(&tv, NULL);
-	ts.tv_sec = tv.tv_sec;
-	ts.tv_nsec = (tv.tv_usec + 1000) * 1000L;
-	if (ts.tv_nsec >= 1000000000L)
+	if (dongle->is_taken == 0 && get_next_coder(dongle) == coder)
 	{
-		ts.tv_sec++;
-		ts.tv_nsec -= 1000000000L;
+		pthread_mutex_unlock(&dongle->is_lock);
+		usleep(500);
+		pthread_mutex_lock(&dongle->is_lock);
+		return ;
 	}
-	pthread_cond_timedwait(&dongle->is_cond, &dongle->is_lock, &ts);
+	pthread_cond_wait(&dongle->is_cond, &dongle->is_lock);
 }
 
 static int	must_wait(t_dongle *dongle, t_coder *coder)
@@ -48,7 +44,7 @@ void	take_dongle(t_dongle *dongle, t_coder *coder)
 		return ;
 	}
 	while (is_running(coder->sim) && must_wait(dongle, coder))
-		wait_dongle(dongle);
+		wait_dongle(dongle, coder);
 	remove_from_waiting(dongle, coder);
 	if (!is_running(coder->sim))
 	{

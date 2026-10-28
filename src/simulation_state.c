@@ -3,10 +3,10 @@
 /*                                                        :::      ::::::::   */
 /*   simulation_state.c                                 :+:      :+:    :+:   */
 /*                                                    +:+ +:+         +:+     */
-/*   By: faharila <faharila@student.42antananari    +#+  +:+       +#+        */
+/*   By: faharila <faharila@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2026/09/28 10:14:57 by faharila          #+#    #+#             */
-/*   Updated: 2026/10/12 09:52:10 by faharila         ###   ########.fr       */
+/*   Updated: 2026/10/28 10:48:43 by faharila         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -46,4 +46,13 @@ void	smart_sleep(t_sim *sim, long duration_ms)
 	start = get_timestamp_ms();
 	while (is_running(sim) && get_timestamp_ms() - start < duration_ms)
 		usleep(500);
+}
+
+t_scheduler	get_scheduler(char *str)
+{
+	if (strcmp(str, "fifo") == 0)
+		return (SCHEDULER_FIFO);
+	if (strcmp(str, "edf") == 0)
+		return (SCHEDULER_EDF);
+	return (SCHEDULER_UNKNOWN);
 }

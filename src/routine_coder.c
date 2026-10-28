@@ -3,10 +3,10 @@
 /*                                                        :::      ::::::::   */
 /*   routine_coder.c                                    :+:      :+:    :+:   */
 /*                                                    +:+ +:+         +:+     */
-/*   By: faharila <faharila@student.42antananari    +#+  +:+       +#+        */
+/*   By: faharila <faharila@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2026/09/28 10:15:03 by faharila          #+#    #+#             */
-/*   Updated: 2026/09/28 10:15:22 by faharila         ###   ########.fr       */
+/*   Updated: 2026/10/28 10:55:51 by faharila         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 

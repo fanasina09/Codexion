@@ -109,7 +109,8 @@ or `heap.h` change.
 
 All eight arguments are mandatory. Negative numbers, non-integers, overflowing
 values, a wrong argument count or another scheduler name print an `Error: ...`
-message on `stderr` and exit with status `1`.
+message on `stderr` and exit with status `1`. Running `./codexion` with **no
+argument at all** is not an error: it prints nothing and exits with status `0`.
 
 ### Output format
 
@@ -237,8 +238,7 @@ no thread ever sleeps through the end of the simulation.
 ### Time
 
 All times come from `gettimeofday` (milliseconds), as recommended by the
-subject. `pthread_cond_timedwait` uses the same clock (`CLOCK_REALTIME`), so an
-absolute deadline built from `gettimeofday` is consistent.
+subject.
 
 ---
 
@@ -261,9 +261,9 @@ The functions used here:
 | `pthread_mutex_init / destroy` | Creates and destroys every mutex (dongles, coders, running flag, printing). |
 | `pthread_mutex_lock / unlock` | Mutual exclusion around every shared datum. |
 | `pthread_cond_init / destroy` | One condition variable per dongle. |
-| `pthread_cond_timedwait` | A coder sleeps until its dongle may be available, with a 1 ms timeout. |
+| `pthread_cond_wait` | A coder sleeps (no timeout) while its dongle is taken or another coder has priority; the mutex is released while it sleeps. |
 | `pthread_cond_broadcast` | Wakes the waiters of a dongle after a release or at the end of the simulation. |
-| `gettimeofday`, `usleep` | Timestamps and interruptible sleeping. |
+| `gettimeofday`, `usleep` | Timestamps, interruptible sleeping, and the short polling sleep used while a cooldown runs out. |
 
 ### Mutex: mutual exclusion
 
@@ -293,7 +293,7 @@ may have become true**, instead of spinning in a loop. It is always used
 pthread_mutex_lock(&dongle->is_lock);
 add_to_waiting(dongle, coder);
 while (is_running(sim) && must_wait(dongle, coder))   // the CONDITION, re-tested
-    wait_dongle(dongle);                              // pthread_cond_timedwait
+    wait_dongle(dongle, coder);                       // pthread_cond_wait / short sleep
 remove_from_waiting(dongle, coder);
 ...
 ```
@@ -304,7 +304,7 @@ Why this exact shape:
   waiters may be woken at once but only one can take the dongle. The condition
   (`must_wait`: dongle taken? am I the heap root? is the cooldown over?) is
   re-evaluated after every wake-up.
-* **The test and the sleep are atomic.** `pthread_cond_timedwait` releases the
+* **The test and the sleep are atomic.** `pthread_cond_wait` releases the
   mutex and puts the thread to sleep in one atomic step, and re-acquires the mutex
   before returning. The condition is tested while holding the mutex, and the
   state it depends on (`is_taken`, the heap) is only changed while holding the
@@ -314,10 +314,24 @@ Why this exact shape:
   priorities and only the *heap root* is allowed to proceed. `signal` could
   wake a non-root waiter that goes straight back to sleep while the root keeps
   sleeping. With at most two waiters per dongle, `broadcast` costs nothing.
-* **A 1 ms timeout.** Nobody signals when a **cooldown expires** (it is just
-  time passing), and a timeout is also a safety net. `wait_dongle` therefore
-  waits at most 1 ms before re-testing, which also keeps the cooldown accurate
-  to the millisecond.
+* **Two kinds of waiting** (`wait_dongle` in `take_dongle.c`):
+  1. **The dongle is taken, or another coder is at the head of the queue** →
+     `pthread_cond_wait`, with **no timeout**. This is safe because every way
+     these two situations can end is followed by a broadcast:
+     * a taken dongle becomes free in `release_dongle`, which broadcasts;
+     * a coder leaves the head of the queue only by *taking* the dongle (the
+       waiter's next event is then that dongle's release, which broadcasts) or
+       when the simulation stops (`stop_simulation` broadcasts).
+  2. **The dongle is free, the coder is at the head of the queue, but the
+     cooldown is not over** → nobody can signal the end of a cooldown (it is just
+     time passing), so the coder unlocks the mutex, sleeps 500 µs and re-tests.
+     The cooldown therefore ends within about half a millisecond.
+* **Why not `pthread_cond_timedwait`?** An earlier version used a 1 ms timed wait
+  for both cases. It worked, but Helgrind reports `dubious: associated lock is
+  not held` from *inside* glibc's implementation of timed waits. Splitting the
+  two cases removes the timed wait, keeps the condition variable for what it is
+  good at (waiting for an event that will be signalled), and makes Helgrind
+  report 0 errors.
 
 ### The `running` flag: a stop "event"
 
@@ -346,7 +360,8 @@ The graph is acyclic and **no code holds a dongle mutex while asking for the
 print mutex**: `take_dongle` unlocks the dongle *before* calling `print_status`.
 Critical sections stay short: `data_lock` and `running_lock` cover one read or
 write, `is_lock` covers the queue test (and is *released* while the thread sleeps in
-`pthread_cond_timedwait`), `print_lock` covers one `printf`.
+`pthread_cond_wait` or in the cooldown polling sleep), `print_lock` covers one
+`printf`.
 
 ### Race conditions prevented, with examples
 
@@ -360,7 +375,7 @@ write, `is_lock` covers the queue test (and is *released* while the thread sleep
 | Two "burned out" lines | Same mechanism: the second caller sees `running == 0` and prints nothing. |
 | The heap is corrupted by two threads | The heap lives inside the dongle and is **only** touched with `is_lock` held. |
 | A sleeping coder never learns the simulation ended | `stop_simulation` broadcasts every dongle condition variable. |
-| Lost wake-up | Condition tested and sleep entered atomically under the same mutex (see above), plus the 1 ms timeout. |
+| Lost wake-up | Condition tested and sleep entered atomically under the same mutex, and every event that ends a wait is followed by a broadcast (see above). |
 
 ### How coders and the monitor communicate (thread-safe)
 
@@ -446,12 +461,16 @@ static int heap_less(t_heap_node *a, t_heap_node *b)
 ```
 
 The **same heap serves both policies**; only the `key` differs
-(`add_to_waiting` in `waiting_queue.c`):
+(`get_key`, called by `add_to_waiting`, in `waiting_queue.c`). The scheduler
+is a `t_scheduler` enum (`SCHEDULER_FIFO`, `SCHEDULER_EDF`) filled by
+`get_scheduler`, so adding a policy only means a new enum value, one line in
+`get_scheduler` and one line in `get_key`:
 
 ```c
 node.seq = dongle->next_seq++;                 // arrival number at this dongle
-if (scheduler == EDF)  node.key = last_compile_start + time_to_burnout;
-else                   node.key = node.seq;    // FIFO
+node.key = get_key(coder, node.seq);
+// get_key: EDF  -> last_compile_start + time_to_burnout
+//          FIFO -> seq
 ```
 
 ### FIFO: First In, First Out
@@ -581,8 +600,9 @@ second dongle that does not exist. This is expected: it burns out after
 
 `release_dongle` stores `released_at = now` under `is_lock`. `must_wait` keeps a
 coder waiting while `now - released_at < dongle_cooldown`. Nobody signals the end
-of a cooldown, so waiters use `pthread_cond_timedwait` with a 1 ms timeout and
-re-test: the cooldown is respected and ends within about a millisecond.
+of a cooldown, so the coder that is next in line polls: it unlocks the dongle,
+sleeps 500 µs and re-tests. The cooldown is respected and ends within about half a
+millisecond. Other waiters do not poll: they sleep on the condition variable.
 
 ### 4. Precise burnout detection
 
@@ -643,6 +663,13 @@ Being explicit about what the design does **not** promise:
   (`./codexion 3 1000 200 100 100 4 10 edf`) it passed 10 runs out of 10.
   Removing the limit would require acquiring both dongles atomically, a
   different and larger design.
+* **A large cooldown makes this limit costlier.** A dongle held by a coder that
+  is still waiting for its second dongle also sits idle, and each idle period is
+  followed by its cooldown. `./codexion 5 3000 200 200 200 10 800 fifo` is
+  feasible in theory (each coder compiling every 2 500 ms, with start times
+  spaced 1 000 ms apart, leaves 500 ms of slack) but burned out in 6 of 6 runs
+  with `fifo` and 6 of 6 with `edf` (the original version of the code: 6 of 6 and
+  5 of 6).
 * Timings depend on the OS scheduler: with a heavily loaded machine, a coder can
   be late by a few milliseconds.
 
@@ -661,10 +688,9 @@ Everything below was run on the final code.
 | AddressSanitizer + UBSan | no report |
 | Heap alone: 200 000 random `push` / `peek` / `remove` operations compared with a naive reference | no difference, ties broken by `seq`, overflow refused |
 
-Helgrind prints a "dubious: associated lock is not held" warning raised from
-inside glibc's `pthread_cond_timedwait` (where the caller does hold the mutex).
-It appears on the original version too; ThreadSanitizer, which is more reliable
-with modern glibc, reports nothing.
+Helgrind (`valgrind --tool=helgrind`) reports **0 errors** on 7 configurations,
+including 1 coder, 30 coders and a large cooldown. 60 stress runs over 15 parameter
+sets (1 to 50 coders, `fifo` and `edf`) never blocked.
 
 ### Effect of the start-up stagger
 
@@ -693,7 +719,7 @@ Absolute figures depend on the machine.)
 
 * POSIX threads overview: [`man 7 pthreads`](https://man7.org/linux/man-pages/man7/pthreads.7.html), and the man pages
   `pthread_create(3)`, `pthread_join(3)`, `pthread_mutex_lock(3)`,
-  `pthread_cond_wait(3)`, `pthread_cond_timedwait(3)`, `gettimeofday(2)`.
+  `pthread_cond_wait(3)`, `gettimeofday(2)`, `usleep(3)`.
 * The Open Group Base Specifications (POSIX.1): <https://pubs.opengroup.org/onlinepubs/9699919799/>
 * R. Arpaci-Dusseau, A. Arpaci-Dusseau, *Operating Systems: Three Easy Pieces*,
   the "Concurrency" chapters (locks, condition variables, deadlock):

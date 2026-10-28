@@ -3,10 +3,10 @@
 /*                                                        :::      ::::::::   */
 /*   parsing.c                                          :+:      :+:    :+:   */
 /*                                                    +:+ +:+         +:+     */
-/*   By: faharila <faharila@student.42antananari    +#+  +:+       +#+        */
+/*   By: faharila <faharila@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2026/09/28 09:48:10 by faharila          #+#    #+#             */
-/*   Updated: 2026/10/12 09:53:03 by faharila         ###   ########.fr       */
+/*   Updated: 2026/10/28 00:50:00 by faharila         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -79,7 +79,7 @@ int	check_args(int ac, char *av[])
 	}
 	if (check_numbers(av))
 		return (1);
-	if (strcmp(av[8], "fifo") != 0 && strcmp(av[8], "edf") != 0)
+	if (get_scheduler(av[8]) == SCHEDULER_UNKNOWN)
 	{
 		fprintf(stderr, "Error: invalid scheduler\n");
 		return (1);
@@ -96,8 +96,5 @@ void	fill_sim(t_sim *sim, char *av[])
 	sim->time_to_refactor = ft_atol(av[5]);
 	sim->number_of_compiles_required = ft_atol(av[6]);
 	sim->dongle_cooldown = ft_atol(av[7]);
-	if (strcmp(av[8], "fifo") == 0)
-		sim->scheduler = SCHED_FIFO_ID;
-	else
-		sim->scheduler = SCHED_EDF_ID;
+	sim->scheduler = get_scheduler(av[8]);
 }
