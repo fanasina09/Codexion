@@ -24,9 +24,9 @@ SRC = $(DIRNAME)/cleanup.c $(DIRNAME)/coder_state.c \
 	  $(DIRNAME)/get_timestamp_ms.c $(DIRNAME)/heap.c \
 	  $(DIRNAME)/heap_ops.c $(DIRNAME)/init_coders.c \
 	  $(DIRNAME)/init_dongles.c $(DIRNAME)/main.c $(DIRNAME)/monitor.c \
-	  $(DIRNAME)/parsing.c $(DIRNAME)/print.c $(DIRNAME)/release_dongle.c \
+	  $(DIRNAME)/parsing.c $(DIRNAME)/print.c $(DIRNAME)/release_dongles.c \
 	  $(DIRNAME)/routine_coder.c $(DIRNAME)/simulation_state.c \
-	  $(DIRNAME)/take_dongle.c $(DIRNAME)/waiting_queue.c
+	  $(DIRNAME)/take_dongles.c $(DIRNAME)/lone_coder.c $(DIRNAME)/waiting_queue.c
 
 OBJ = $(SRC:.c=.o)
 

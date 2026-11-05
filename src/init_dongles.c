@@ -16,12 +16,7 @@ static int	init_one(t_dongle *dongle)
 {
 	dongle->is_taken = 0;
 	dongle->released_at = 0;
-	dongle->next_seq = 0;
-	if (!heap_init(&dongle->waiting, 2))
-		return (0);
-	pthread_mutex_init(&dongle->is_lock, NULL);
-	pthread_cond_init(&dongle->is_cond, NULL);
-	return (1);
+	return (heap_init(&dongle->waiting, 2));
 }
 
 void	destroy_dongles(t_dongle *dongles, int count)
@@ -29,8 +24,6 @@ void	destroy_dongles(t_dongle *dongles, int count)
 	while (count > 0)
 	{
 		count--;
-		pthread_mutex_destroy(&dongles[count].is_lock);
-		pthread_cond_destroy(&dongles[count].is_cond);
 		heap_destroy(&dongles[count].waiting);
 	}
 	free(dongles);

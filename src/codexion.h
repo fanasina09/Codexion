@@ -6,7 +6,7 @@
 /*   By: faharila <faharila@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2026/09/28 09:46:07 by faharila          #+#    #+#             */
-/*   Updated: 2026/10/28 09:05:19 by faharila         ###   ########.fr       */
+/*   Updated: 2026/11/04 08:04:56 by faharila         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -33,10 +33,7 @@ typedef enum e_scheduler
 typedef struct s_dongle
 {
 	int				is_taken;
-	pthread_mutex_t	is_lock;
-	pthread_cond_t	is_cond;
 	t_heap			waiting;
-	long			next_seq;
 	long			released_at;
 }					t_dongle;
 
@@ -66,6 +63,9 @@ typedef struct s_sim
 	long			start_time;
 	pthread_mutex_t	running_lock;
 	pthread_mutex_t	print_lock;
+	pthread_mutex_t	table_lock;
+	pthread_cond_t	table_cond;
+	long			next_seq;
 	t_dongle		*dongles;
 	t_coder			*coders;
 }					t_sim;
@@ -80,15 +80,17 @@ t_coder				*init_coders(int number_of_coders, t_dongle *dongles,
 						t_sim *sim);
 void				*routine_coder(void *arg);
 void				launch_coders(t_sim *sim);
-void				release_dongle(t_dongle *dongle);
+void				release_dongles(t_coder *coder);
 long				get_timestamp_ms(void);
 long				get_elapsed_ms(t_sim *sim);
-void				take_dongle(t_dongle *dongle, t_coder *coder);
+int					take_dongles(t_coder *coder);
+int					lone_coder(t_coder *coder);
 int					is_running(t_sim *sim);
 void				stop_simulation(t_sim *sim);
 t_scheduler			get_scheduler(char *str);
 void				smart_sleep(t_sim *sim, long duration_ms);
 void				print_status(t_coder *coder, char *msg);
+void				print_dongles(t_coder *coder);
 void				print_burnout(t_sim *sim, int id);
 long				get_last_compile(t_coder *coder);
 void				set_last_compile(t_coder *coder);
@@ -96,9 +98,8 @@ int					get_compiles(t_coder *coder);
 void				add_compile(t_coder *coder);
 void				*monitor(void *arg);
 void				cleanup(t_sim *sim);
-int					add_to_waiting(t_dongle *dongle, t_coder *coder);
-void				remove_from_waiting(t_dongle *dongle, t_coder *coder);
+int					enter_queues(t_coder *coder);
+void				leave_queues(t_coder *coder);
 long				get_deadline(t_coder *coder);
-t_coder				*get_next_coder(t_dongle *dongle);
 
 #endif

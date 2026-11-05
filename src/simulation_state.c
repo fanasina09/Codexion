@@ -24,19 +24,12 @@ int	is_running(t_sim *sim)
 
 void	stop_simulation(t_sim *sim)
 {
-	int	i;
-
 	pthread_mutex_lock(&sim->running_lock);
 	sim->running = 0;
 	pthread_mutex_unlock(&sim->running_lock);
-	i = 0;
-	while (i < sim->number_of_coders)
-	{
-		pthread_mutex_lock(&sim->dongles[i].is_lock);
-		pthread_cond_broadcast(&sim->dongles[i].is_cond);
-		pthread_mutex_unlock(&sim->dongles[i].is_lock);
-		i++;
-	}
+	pthread_mutex_lock(&sim->table_lock);
+	pthread_cond_broadcast(&sim->table_cond);
+	pthread_mutex_unlock(&sim->table_lock);
 }
 
 void	smart_sleep(t_sim *sim, long duration_ms)

@@ -6,7 +6,7 @@
 /*   By: faharila <faharila@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2026/09/28 10:14:28 by faharila          #+#    #+#             */
-/*   Updated: 2026/10/28 09:04:54 by faharila         ###   ########.fr       */
+/*   Updated: 2026/11/05 08:40:00 by faharila         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -29,23 +29,34 @@ static long	get_key(t_coder *coder, long seq)
 	return (seq);
 }
 
-int	add_to_waiting(t_dongle *dongle, t_coder *coder)
+static int	push_in(t_dongle *dongle, t_coder *coder, long seq)
 {
 	t_heap_node	node;
 
 	node.coder = coder;
-	node.seq = dongle->next_seq;
-	dongle->next_seq++;
-	node.key = get_key(coder, node.seq);
+	node.seq = seq;
+	node.key = get_key(coder, seq);
 	return (heap_push(&dongle->waiting, node));
 }
 
-void	remove_from_waiting(t_dongle *dongle, t_coder *coder)
+int	enter_queues(t_coder *coder)
 {
-	heap_remove(&dongle->waiting, coder);
+	long	seq;
+
+	seq = coder->sim->next_seq;
+	coder->sim->next_seq++;
+	if (!push_in(coder->left_dongle, coder, seq))
+		return (0);
+	if (!push_in(coder->right_dongle, coder, seq))
+	{
+		heap_remove(&coder->left_dongle->waiting, coder);
+		return (0);
+	}
+	return (1);
 }
 
-t_coder	*get_next_coder(t_dongle *dongle)
+void	leave_queues(t_coder *coder)
 {
-	return (heap_peek(&dongle->waiting));
+	heap_remove(&coder->left_dongle->waiting, coder);
+	heap_remove(&coder->right_dongle->waiting, coder);
 }

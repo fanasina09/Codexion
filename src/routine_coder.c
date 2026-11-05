@@ -6,39 +6,23 @@
 /*   By: faharila <faharila@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2026/09/28 10:15:03 by faharila          #+#    #+#             */
-/*   Updated: 2026/10/28 10:55:51 by faharila         ###   ########.fr       */
+/*   Updated: 2026/11/04 10:23:49 by faharila         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
 #include "codexion.h"
-
-static void	take_both(t_coder *coder)
-{
-	if (coder->id == coder->sim->number_of_coders)
-	{
-		take_dongle(coder->right_dongle, coder);
-		take_dongle(coder->left_dongle, coder);
-	}
-	else
-	{
-		take_dongle(coder->left_dongle, coder);
-		take_dongle(coder->right_dongle, coder);
-	}
-}
 
 static int	compile_step(t_coder *coder)
 {
 	t_sim	*sim;
 
 	sim = coder->sim;
-	take_both(coder);
-	if (!is_running(sim))
+	if (!take_dongles(coder))
 		return (0);
 	set_last_compile(coder);
 	print_status(coder, "is compiling");
 	smart_sleep(sim, sim->time_to_compile);
-	release_dongle(coder->left_dongle);
-	release_dongle(coder->right_dongle);
+	release_dongles(coder);
 	add_compile(coder);
 	return (is_running(sim));
 }

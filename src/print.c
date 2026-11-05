@@ -20,6 +20,22 @@ void	print_status(t_coder *coder, char *msg)
 	pthread_mutex_unlock(&coder->sim->print_lock);
 }
 
+void	print_dongles(t_coder *coder)
+{
+	t_sim	*sim;
+	long	now;
+
+	sim = coder->sim;
+	pthread_mutex_lock(&sim->print_lock);
+	if (is_running(sim))
+	{
+		now = get_elapsed_ms(sim);
+		printf("%ld %d has taken a dongle\n", now, coder->id);
+		printf("%ld %d has taken a dongle\n", now, coder->id);
+	}
+	pthread_mutex_unlock(&sim->print_lock);
+}
+
 void	print_burnout(t_sim *sim, int id)
 {
 	pthread_mutex_lock(&sim->print_lock);
