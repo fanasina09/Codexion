@@ -36,7 +36,7 @@ static int	check_burnout(t_sim *sim)
 	{
 		if (get_compiles(&sim->coders[i]) < sim->number_of_compiles_required)
 		{
-			elapsed = get_timestamp_ms() - get_last_compile(&sim->coders[i]);
+			elapsed = ms_since(get_last_compile(&sim->coders[i]));
 			if (elapsed > sim->time_to_burnout)
 			{
 				print_burnout(sim, sim->coders[i].id);

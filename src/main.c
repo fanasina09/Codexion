@@ -16,7 +16,7 @@ static void	init_start(t_sim *sim)
 {
 	int	i;
 
-	sim->start_time = get_timestamp_ms();
+	sim->start_time = get_timestamp_us();
 	i = 0;
 	while (i < sim->number_of_coders)
 	{
@@ -25,27 +25,42 @@ static void	init_start(t_sim *sim)
 	}
 }
 
-void	launch_coders(t_sim *sim)
+static int	start_coders(t_sim *sim)
 {
-	pthread_t	monitor_thread;
-	int			i;
+	int	i;
 
-	init_start(sim);
-	pthread_create(&monitor_thread, NULL, monitor, sim);
 	i = 0;
 	while (i < sim->number_of_coders)
 	{
-		pthread_create(&sim->coders[i].thread, NULL, routine_coder,
-			&sim->coders[i]);
+		if (pthread_create(&sim->coders[i].thread, NULL, routine_coder,
+				&sim->coders[i]))
+		{
+			stop_simulation(sim);
+			break ;
+		}
 		i++;
 	}
+	return (i);
+}
+
+int	launch_coders(t_sim *sim)
+{
+	pthread_t	monitor_thread;
+	int			started;
+	int			i;
+
+	init_start(sim);
+	if (pthread_create(&monitor_thread, NULL, monitor, sim))
+		return (1);
+	started = start_coders(sim);
 	i = 0;
-	while (i < sim->number_of_coders)
+	while (i < started)
 	{
 		pthread_join(sim->coders[i].thread, NULL);
 		i++;
 	}
 	pthread_join(monitor_thread, NULL);
+	return (started != sim->number_of_coders);
 }
 
 static int	init_sim(t_sim *sim)
@@ -55,14 +70,18 @@ static int	init_sim(t_sim *sim)
 	pthread_mutex_init(&sim->print_lock, NULL);
 	pthread_mutex_init(&sim->table_lock, NULL);
 	pthread_cond_init(&sim->table_cond, NULL);
-	sim->next_seq = 0;
+	sim->next_seq = sim->number_of_coders;
 	sim->dongles = init_dongles(sim->number_of_coders);
 	if (!sim->dongles)
+	{
+		destroy_sync(sim);
 		return (1);
+	}
 	sim->coders = init_coders(sim->number_of_coders, sim->dongles, sim);
 	if (!sim->coders)
 	{
 		destroy_dongles(sim->dongles, sim->number_of_coders);
+		destroy_sync(sim);
 		return (1);
 	}
 	return (0);
@@ -71,6 +90,7 @@ static int	init_sim(t_sim *sim)
 int	main(int ac, char *av[])
 {
 	t_sim	sim;
+	int		failed;
 
 	if (ac == 1)
 		return (0);
@@ -79,7 +99,9 @@ int	main(int ac, char *av[])
 	fill_sim(&sim, av);
 	if (init_sim(&sim))
 		return (1);
-	launch_coders(&sim);
+	failed = launch_coders(&sim);
 	cleanup(&sim);
-	return (0);
+	if (failed)
+		fprintf(stderr, "Error: could not start the threads\n");
+	return (failed);
 }

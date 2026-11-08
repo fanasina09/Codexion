@@ -35,10 +35,18 @@ void	stop_simulation(t_sim *sim)
 void	smart_sleep(t_sim *sim, long duration_ms)
 {
 	long	start;
+	long	elapsed;
 
-	start = get_timestamp_ms();
-	while (is_running(sim) && get_timestamp_ms() - start < duration_ms)
-		usleep(500);
+	start = get_timestamp_us();
+	elapsed = 0;
+	while (is_running(sim) && elapsed < duration_ms)
+	{
+		if (duration_ms - elapsed > 1)
+			usleep(500);
+		else
+			usleep(50);
+		elapsed = ms_since(start);
+	}
 }
 
 t_scheduler	get_scheduler(char *str)

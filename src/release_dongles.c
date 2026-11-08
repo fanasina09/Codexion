@@ -19,7 +19,7 @@ void	release_dongles(t_coder *coder)
 
 	sim = coder->sim;
 	pthread_mutex_lock(&sim->table_lock);
-	now = get_timestamp_ms();
+	now = get_timestamp_us();
 	coder->left_dongle->is_taken = 0;
 	coder->left_dongle->released_at = now;
 	coder->right_dongle->is_taken = 0;

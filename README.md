@@ -66,7 +66,8 @@ therefore shared by exactly two coders (by one coder with itself when `N = 1`).
 |---|---|
 | `main.c` | Parses, initializes the simulation, starts the monitor and the coder threads, joins them, cleans up. |
 | `parsing.c` | Argument validation (positive integers, `fifo`/`edf`) and filling of `t_sim`. |
-| `routine_coder.c` | Life cycle of a coder thread: stagger, take dongles, compile, debug, refactor. |
+| `routine_coder.c` | Life cycle of a coder thread: take dongles, compile, debug, refactor. |
+| `stagger.c` | Start-up plan: the rank of each coder in the first queue and the earliest date of its first compile (`start_rank`, `start_delay`). |
 | `take_dongles.c` | **All-or-nothing** acquisition: enqueue in the two heaps, wait until both dongles can be taken together, take both. |
 | `lone_coder.c` | Special case `N = 1` (a single dongle exists): take it, then wait for the burnout. |
 | `release_dongles.c` | Releases both dongles at once, stamps the cooldown start, wakes the waiters. |
@@ -76,7 +77,7 @@ therefore shared by exactly two coders (by one coder with itself when `N = 1`).
 | `simulation_state.c` | Shared `running` flag, `stop_simulation`, interruptible `smart_sleep`. |
 | `coder_state.c` | Mutex-protected accessors of a coder's compile counter and last compile start. |
 | `print.c` | Serialized logging (`print_dongles` prints the two dongle lines in one critical section). |
-| `get_timestamp_ms.c` | Time helpers (`gettimeofday`). |
+| `get_time.c` | Time helpers: microsecond clock (`gettimeofday`), whole milliseconds elapsed since a date, elapsed time since the start. |
 | `init_dongles.c`, `init_coders.c`, `cleanup.c` | Allocation, initialization and destruction. |
 | `codexion.h` | Structures and prototypes. |
 ---
@@ -227,11 +228,13 @@ main thread ── init ── launch_coders ──┬── monitor thread   (1
 ### Life of a coder
 
 ```c
-stagger_start();                      // even ids wait time_to_compile / 2
 while (is_running && compiles < required)
 {
     take_dongles();                   // BOTH dongles at once, or wait holding none
-    set_last_compile();               // start of the compile = new deadline origin
+                                      //   (the 1st time: not before start_ms)
+    set_last_compile();               // new deadline origin; if the coder is already
+                                      //   late: "burned out", release, stop
+    print the 2 dongle lines;         // only once we know the coder is on time
     print "is compiling";   smart_sleep(time_to_compile);
     release_dongles();                // both at once
     add_compile();
@@ -240,13 +243,20 @@ while (is_running && compiles < required)
 }
 ```
 
-`smart_sleep` sleeps by slices of 500 µs and re-checks the `running` flag, so
-no thread ever sleeps through the end of the simulation.
+`smart_sleep` sleeps by slices of 500 µs (50 µs during the last millisecond) and
+re-checks the `running` flag, so no thread ever sleeps through the end of the
+simulation, and a sleep **never ends early**: it lasts at least `duration` ms.
 
 ### Time
 
-All times come from `gettimeofday` (milliseconds), as recommended by the
-subject.
+All times come from `gettimeofday`, kept internally in **microseconds**
+(`get_timestamp_us`). Every comparison is made on a **duration** converted to
+whole milliseconds, `ms_since(date_us) = (now_us - date_us) / 1000`, and never on
+the difference of two timestamps that were each truncated to the millisecond.
+The second form can be wrong by 1 ms in both directions (a sleep of 200 ms could end after 199.01 ms,
+and a duration of 599.2 ms could be computed as 600), which is enough to miss a
+burnout at the boundary, for example `./codexion 2 599 200 200 200 2 0 edf`. The
+printed timestamps are still in milliseconds, as the subject requires.
 
 ---
 
@@ -271,7 +281,7 @@ The functions used here:
 | `pthread_cond_init / destroy` | One condition variable for the whole table (`table_cond`). |
 | `pthread_cond_wait` | A coder sleeps (no timeout) while its two dongles are not both free or another coder has priority; the mutex is released while it sleeps. |
 | `pthread_cond_broadcast` | Wakes all the waiters after a release or at the end of the simulation. |
-| `gettimeofday`, `usleep` | Timestamps, interruptible sleeping, and the short polling sleep used while a cooldown runs out. |
+| `gettimeofday`, `usleep` | Microsecond timestamps, interruptible sleeping, and the short polling sleep used while a cooldown runs out. |
 
 ### Mutex: mutual exclusion
 
@@ -306,7 +316,7 @@ may have become true**, instead of spinning in a loop. It is always used
 ```c
 pthread_mutex_lock(&sim->table_lock);
 enter_queues(coder);                                  // queue on BOTH dongles
-while (is_running(sim) && !(is_available(coder) && cooldown_over(coder)))
+while (is_running(sim) && !(is_available(coder) && is_time(coder)))
     wait_turn(coder);                                 // pthread_cond_wait / short sleep
 leave_queues(coder);
 left->is_taken = right->is_taken = 1;                 // both, in the same critical section
@@ -319,7 +329,7 @@ Why this exact shape:
 * **`while`, not `if`.** `pthread_cond_wait` may return spuriously, and several
   waiters may be woken at once but only some can proceed. The condition
   (`is_available`: both dongles free? am I the root of **both** heaps?
-  `cooldown_over`: is the cooldown of both dongles over?) is re-evaluated after
+  `is_time`: is the cooldown of both dongles over, and is the start date of a first compile reached?) is re-evaluated after
   every wake-up.
 * **The test and the sleep are atomic.** `pthread_cond_wait` releases the
   mutex and puts the thread to sleep in one atomic step, and re-acquires the mutex
@@ -374,7 +384,8 @@ table_lock ──► coder.data_lock       (EDF key / get_deadline)
 ```
 
 The graph is acyclic and **no code holds the table mutex while asking for the
-print mutex**: `take_dongles` unlocks the table *before* calling `print_dongles`.
+print mutex**: `take_dongles` returns (table unlocked) *before* `compile_step`
+calls `print_dongles`.
 There is only **one** mutex for the dongles, so two dongle mutexes can never be
 taken in opposite orders by two coders. Critical sections stay short:
 `data_lock` and `running_lock` cover one read or write, `table_lock` covers the
@@ -419,7 +430,7 @@ know whether another coder is about to burn out.
 Every dongle owns a priority queue of the coders currently **waiting for it**.
 When a coder wants to compile it joins the queues of **both** its dongles
 (`enter_queues`), with **the same ticket** in both. It is allowed to take its
-dongles only if all these conditions hold (`is_available` and `cooldown_over`
+dongles only if all these conditions hold (`is_available` and `is_time`
 in `take_dongles.c`):
 
 1. **both** dongles are **free**;
@@ -491,8 +502,9 @@ is a `t_scheduler` enum (`SCHEDULER_FIFO`, `SCHEDULER_EDF`) filled by
 
 ```c
 seq      = sim->next_seq++;                    // global ticket, taken under table_lock
+                                               // (1st request: ticket = start_rank, set at init)
 node.key = get_key(coder, seq);                // same node pushed in both heaps
-// get_key: EDF  -> last_compile_start + time_to_burnout
+// get_key: EDF  -> last_compile_start + time_to_burnout   (in microseconds)
 //          FIFO -> seq
 ```
 
@@ -503,7 +515,7 @@ node.key = get_key(coder, seq);                // same node pushed in both heaps
 
 ### EDF: Earliest Deadline First
 
-`key = deadline = last_compile_start + time_to_burnout`: the root is the coder
+`key = deadline = last_compile_start + time_to_burnout` (in microseconds): the root is the coder
 who will **burn out first**. If two coders have exactly the same deadline,
 `seq` breaks the tie, so the policy is **fully deterministic**, as the subject
 requires.
@@ -594,7 +606,7 @@ A coder either obtains **both** dongles **in one atomic step**, or it obtains
 ```c
 pthread_mutex_lock(&sim->table_lock);
 enter_queues(coder);                      // register on both dongles (same ticket)
-while (!(both_free && head_of_both_queues && cooldown_over))
+while (!(both_free && head_of_both_queues && cooldown_over_and_start_date_reached))
     wait;                                 // holding NO dongle, table_lock released
 leave_queues(coder);
 left->is_taken = 1;  right->is_taken = 1; // both, same critical section
@@ -627,21 +639,54 @@ by a larger one, so the number of requests smaller than any waiting request only
 decreases, and each of them is served in bounded time (the same argument applies
 to each in turn).
 
-#### The start-up stagger is still needed
+#### The start-up plan: rank in the queue and start offset
 
 The strict priority has a price: a coder cannot take two free dongles if a
 **higher-priority neighbour is ahead of it in a queue**, even if that neighbour
-is itself blocked. At `t = 0` every coder enqueues at the same time in an
-arbitrary order. With 4 coders arriving in the order 1, 2, 3, 4, coder 2 sits in
-front of coder 3 on `d2`, and is blocked by coder 1, so coder 3 waits behind
-it, and so on: the compiles are serialized (`4 × 210 ms = 840 ms`) although two
-could run in parallel. The `stagger_start` delay (even ids wait
-`time_to_compile / 2`) makes the odd coders enqueue first, so that they compile
-together, then the even ones. Measurements are in
-[Testing](#testing-and-validation).
+is itself blocked. So the order in which the coders first enter the queues, and
+the dates of their first compiles, decide the rhythm of the whole simulation.
+Left to chance (the order in which the threads happen to start), this order can
+serialize the first compiles, and the rhythm it creates can be a bad one.
 
-Letting a lower-priority coder bypass a blocked neighbour would remove the need
-for the stagger, but it reopens the door to starvation (two neighbours can keep
+**1. Rank in the first queue (`start_rank`).** Every coder enters the queues of
+its two dongles **at `t = 0`** with a ticket computed at initialization
+(`first_seq`), not with the arrival order of its thread. The tickets of the first
+requests are `0 … N-1`, the later requests get `N, N+1, ...` from the global
+counter, so a coder that has not compiled yet always has priority over a coder
+that has already compiled (as the EDF deadline does, too). For an even `N` the
+odd ids come first, then the even ids, so the odd coders (no two are neighbours)
+compile together first.
+
+**2. Start offset (`start_delay`, field `start_ms`).** A coder is queued from
+`t = 0` but **cannot start its first compile before `start_ms`** (the waiting
+happens *inside* `take_dongles`, with the coder already in the queues: a coder
+that sleeps *before* queuing could be overtaken by a neighbour who is already
+waiting, and the result depended on a race of a few hundred microseconds).
+
+* even `N`: the odd ids start at `0`, the even ids at `time_to_compile / 2`
+  (they cannot start earlier anyway, since their neighbours hold their dongles);
+* odd `N` (`half = N / 2`): the coder `id` starts at
+  `((half × (id - 1)) mod N) × (time_to_compile + dongle_cooldown) / half`.
+  This spreads the first starts regularly, `(time_to_compile + dongle_cooldown) /
+  half` apart, in an order in which two neighbours are always at least `half`
+  positions apart.
+
+**Why an offset for an odd `N`?** A dongle is unavailable for
+`time_to_compile + dongle_cooldown` after each start. With 5 coders only 2 can
+compile at the same time (the ring is odd), so a *work-conserving* schedule
+(everybody starts as soon as possible) falls into aligned slots of
+`time_to_compile + dongle_cooldown` ms, 2 coders per slot, and needs **3 slots**
+for 5 coders: a coder waits exactly 3 slots between two compiles. For
+`./codexion 5 3000 200 200 200 10 800`, slot = 1000 ms, so each coder waits
+**exactly 3000 ms = `time_to_burnout`**: a coder burns out at 3001 ms. Yet the
+parameters are feasible: if the starts are not aligned but regularly spread,
+500 ms apart (coder order 1, 4, 2, 5, 3), two neighbours are 1000 ms apart, which
+is enough for the cooldown, and **each coder compiles every 2500 ms**, which
+leaves 500 ms of slack. The offsets above place the coders directly in that
+rhythm, and the queue order (smaller rank first) keeps them in it.
+
+Letting a lower-priority coder bypass a blocked neighbour would not find this
+rhythm either, and it reopens the door to starvation (two neighbours can keep
 alternating on the dongles of a coder that never gets both). The strict rule was
 kept on purpose.
 
@@ -667,20 +712,20 @@ is), then sleeps on the condition variable. It burns out after
 * Overtaking is **bounded** (see the previous section): a request can only be
   overtaken by smaller ones, and a coder that has just been served comes back
   with a larger ticket / a later deadline.
-* **Start-up convoy and the stagger.** At `t = 0` all the coders enqueue at once
+* **Start-up convoy and the rhythm.** At `t = 0` all the coders enqueue at once
   and, as explained above, the strict queue order can serialize the first
-  compiles. To prevent this, **coders with an even `id` wait
-  `time_to_compile / 2` ms before their first attempt** (`stagger_start`): the
-  odd coders take their two dongles without contention and compile together,
-  then the even coders take over. The delay costs nothing because an even coder's
-  neighbours are odd coders who hold its dongles for at least `time_to_compile`
-  anyway. See [Testing](#testing-and-validation) for measurements.
+  compiles. The first requests are therefore ranked (`start_rank`) instead of
+  being ordered by the arrival of the threads, and for an odd number of coders
+  the first compiles are spread in time (`start_delay`), which is what makes a
+  large cooldown feasible. See [Testing](#testing-and-validation) for
+  measurements.
 
 ### 3. Dongle cooldown
 
 `release_dongles` stores `released_at = now` on **both** dongles under
-`table_lock`. `cooldown_over` keeps a coder waiting while
-`now - released_at < dongle_cooldown` for **either** of its dongles. Nobody
+`table_lock`. `is_time` keeps a coder waiting while
+`ms_since(released_at) < dongle_cooldown` for **either** of its dongles (and, for
+its first compile, while `start_ms` is not reached). Nobody
 signals the end of a cooldown, so the coder that is next in line polls: it
 unlocks the table, sleeps 500 µs and re-tests. The cooldown is respected and ends
 within about half a millisecond. Other waiters do not poll: they sleep on the
@@ -690,8 +735,20 @@ condition variable.
 
 * A **dedicated monitor thread** loops every `1 ms` (`usleep(1000)`).
 * For each coder that has not yet reached the required number of compiles, it
-  computes `now - last_compile_start` (read under `data_lock`) and declares a
+  computes `ms_since(last_compile_start)` (read under `data_lock`) and declares a
   burnout when it is **strictly greater** than `time_to_burnout`.
+* **The coder checks its own deadline too.** The monitor only looks every
+  millisecond, so a coder could start a compile *just after* its deadline and
+  reset `last_compile_start` before the monitor saw the overrun (this is what
+  happened with `./codexion 2 599 200 200 200 2 0 edf`: the second compile
+  started at 600 ms and no burnout was reported). `set_last_compile` therefore
+  tests the deadline and updates `last_compile_start` in **one critical section**
+  on `data_lock`: if the coder is already late it does **not** update it, and
+  `compile_step` reports the burnout (`print_burnout`), releases the dongles and
+  stops. Whoever sees the overrun first (monitor or coder) reports it, and
+  `print_burnout` guarantees that it is reported **once**.
+* The two dongle lines are printed *after* this check, so a late coder never logs
+  `has taken a dongle` right before its own `burned out`.
 * The monitor takes **no table mutex**, so it keeps working even when every
   coder is blocked waiting for its dongles.
 * `print_burnout` prints the line and stops the simulation in the same
@@ -723,7 +780,12 @@ inserted between them**. Inside the lock the `running` flag is tested again, so
 
 * **Spurious wake-ups** → condition re-tested in a `while` loop.
 * **Time overflow** → `get_deadline` saturates at `LONG_MAX` instead of
-  overflowing.
+  overflowing (the microsecond conversion is checked by a division first).
+* **Thread creation failure** → the simulation is stopped, only the threads that
+  were created are joined, and the program exits with status `1` and an error
+  message.
+* **Initialization failure** → the mutexes and the condition variable already
+  created are destroyed (`destroy_sync`) before returning.
 * **Invalid input** → rejected before any thread or allocation exists.
 * **Heap full** (impossible by construction) → the simulation stops cleanly.
 * **One coder** → handled separately (`lone_coder`), see above.
@@ -739,19 +801,22 @@ Being explicit about what the design does **not** promise:
   not. A coder cannot take two free dongles if a higher-priority neighbour is
   ahead of it in a queue, even if that neighbour is itself blocked. That rule is
   what prevents starvation, and its cost is some lost parallelism.
-* **The start-up stagger is required.** Without `stagger_start`, the first
-  arrivals are served in an arbitrary order and the first compiles can be
-  serialized (for 4 to 10 coders, 10 to 12 runs out of 12 burned out on feasible
-  parameters, see [Testing](#testing-and-validation)). The stagger is a heuristic
-  that fits the ring parity; it is not a proof for every possible parameter set.
+* **The start-up plan is a heuristic.** The ranks and the start offsets
+  (`stagger.c`) fit the parity of the ring and the way the dongles cool down: they
+  are what makes `./codexion 5 3000 200 200 200 10 800 edf` work, but they are not
+  a proof that the best possible rhythm is found for every parameter set. The
+  steady state is the one that follows from the order of the first starts; the
+  queues keep it, they do not search for a better one.
 * **Infeasible parameters still burn out**, of course. `./codexion 4 410 200 200 200 10 50 fifo`
   needs two rounds of `200 + 50` ms, i.e. 500 ms between two compiles of the same
   coder, and only 410 ms are allowed: the burnout is the correct answer, not a
   failure of the algorithm.
-* **A large cooldown still leaves little room.** `./codexion 5 3000 200 200 200 10 800 edf`
-  passed 4 runs out of 4 and the same parameters with `fifo` passed 3 runs out of 4
-  (the previous version burned out in 6 of 6 runs). These runs were launched in
-  parallel on a 2-core container, so a part of the failure can be scheduling noise.
+* **A large cooldown leaves little room.** `./codexion 5 3000 200 200 200 10 800 <scheduler>`
+  has only 500 ms of slack on a 2500 ms rhythm (see the start-up plan above): it
+  passed 16 runs out of 16 (`fifo` and `edf`) on the final code, with two runs in
+  parallel on a 2-core container. Without the start offsets it burned out in 6 of
+  6 runs. A machine much slower or more loaded than the one used here could still
+  eat these 500 ms.
 * **`pthread_cond_broadcast` wakes every waiting coder** at each release, so up to
   `N` threads wake up and re-test. It is correct and cheap for the sizes
   tested (up to 200 coders) but it is not the most scalable choice. A per-coder
@@ -771,12 +836,12 @@ last row was measured on the previous revision of the same files).
 |---|---|
 | `norminette` on all files | OK |
 | Build with `-Wall -Wextra -Werror -pthread` | no warning |
-| Valgrind (`--leak-check=full`) on 4 scenarios, including 1 coder and burnouts | 0 errors, 0 leaks |
-| ThreadSanitizer on 6 scenarios | no warning |
+| Valgrind (`--leak-check=full`) on 4 scenarios, including 1 coder, burnouts and `2 599 200 200 200 2 0 edf` | 0 errors, 0 leaks |
+| ThreadSanitizer on 5 scenarios | no warning |
 | AddressSanitizer + UBSan on 4 scenarios | no report |
-| Helgrind on 7 configurations, including 1 coder, 30 coders and a cooldown | 0 errors |
-| Automatic log checker on 13 parameter sets (2 to 200 coders, `fifo` and `edf`) | **0 violation**: every pair of `has taken a dongle` lines is consecutive, same coder, same timestamp; two neighbours never compile at the same time |
-| Same checker on the previous version (one dongle at a time) | interleaved dongle lines in 9 of the 13 sets |
+| Helgrind on 3 configurations, including 30 coders | 0 errors |
+| Automatic log checker on 12 parameter sets (2 to 200 coders, `fifo` and `edf`) | **0 violation**: every pair of `has taken a dongle` lines is consecutive, same coder, same timestamp; two neighbours never compile at the same time |
+| Same checker on the previous version (one dongle at a time), measured earlier on 13 sets | interleaved dongle lines in 9 of the 13 sets |
 | Heap alone: 200 000 random `push` / `peek` / `remove` operations compared with a naive reference | no difference, ties broken by `seq`, overflow refused |
 
 ### All-or-nothing versus one dongle at a time
@@ -798,25 +863,65 @@ On 10 other feasible sets (6 to 40 coders, 6 runs each) both versions had no
 burnout; no case was found where the new version does worse.
 (Absolute figures depend on the machine.)
 
-### Effect of the start-up stagger
+### Burnout boundaries
+
+The burnout must be reported when the parameters are impossible, and only then.
+With 2 coders and `200 200 200` (compile, debug, refactor) one coder can start a
+compile at best every `200 + 200 + 200 = 600` ms. Results for
+`./codexion 2 <time_to_burnout> 200 200 200 2 0 edf`, number of runs with a burnout:
+
+| `time_to_burnout` | expected | burnout (runs) |
+|---|---|---|
+| 598 | burnout | 12 / 12 |
+| **599** | **burnout** | **15 / 15** (`edf`), **15 / 15** (`fifo`) |
+| 600 | no burnout (limit: the cycle lasts exactly 600 ms) | 0 / 12 |
+| 601 | no burnout | 0 / 12 |
+| 610 | no burnout | 0 / 12 |
+
+With 3 coders (`3 <b> 200 100 100 3 0 fifo`): `599` burns out 8 / 8, `650` never.
+With 1 coder (`1 300 100 100 100 3 0 fifo`): burnout 3 / 3, around 301-302 ms.
+Before the microsecond clock and the coder-side check, `2 599 ...` printed **no**
+burnout.
+
+### Large cooldown and odd number of coders
+
+Number of runs **with a burnout**, same machine (the largest cases take 25 s per run):
+
+| Scenario | no start offset | with the start plan |
+|---|---|---|
+| `5 3000 200 200 200 4 800 edf` | 6 / 6 | **0 / 6** |
+| `5 3000 200 200 200 10 800 fifo` | not measured | **0 / 8** |
+| `5 3000 200 200 200 10 800 edf` | not measured | **0 / 8** |
+| `7 2000 200 200 200 8 400` (`fifo`, `edf`) | not measured | **0 / 6** |
+| `9 2000 200 200 200 8 400` (`fifo`, `edf`) | not measured | **0 / 6** |
+| `11 2200 200 200 200 6 400` (`fifo`, `edf`) | not measured | **0 / 6** |
+| `3 3300 200 200 200 6 800` (`fifo`, `edf`) | not measured | **0 / 6** |
+
+Intermediate steps of this work, on `5 3000 200 200 200 10 800`: with the
+offsets but with the coder sleeping *before* entering the queue, 3 runs out of 6
+burned out (a race on the cooldown date, explained above); with the first-request
+ticket and the queuing at `t = 0` but no offset (`5 3000 200 200 200 4 800 edf`),
+6 out of 6 burned out.
+
+### Effect of the start-up plan on ordinary parameters
 
 Number of runs with a burnout out of 12, on feasible parameters, **without** and
-**with** the stagger, with the all-or-nothing code:
+**with** the start offsets (the first requests are ranked in both cases):
 
-| Scenario | without | with |
+| Scenario | without offsets | with offsets |
 |---|---|---|
 | 2 coders, edf | 0/12 | 0/12 |
 | 3 coders, edf | 0/12 | 0/12 |
-| 4 coders, fifo | 11/12 | **0/12** |
-| 4 coders, edf | 11/12 | **0/12** |
-| 5 coders, fifo | 10/12 | **0/12** |
-| 5 coders, edf | 11/12 | **0/12** |
-| 8 coders, edf | 12/12 | **0/12** |
-| 10 coders, edf | 12/12 | **0/12** |
+| 4 coders, fifo / edf | 0/12, 0/12 | 0/12, 0/12 |
+| 5 coders, fifo / edf | 0/12, 0/12 | 0/12, 0/12 |
+| 7 coders, fifo | 0/12 | 0/12 |
+| 8 coders, edf | 0/12 | 0/12 |
+| 10 coders, edf | 0/12 | 0/12 |
 
-(Parameters: `800 200 200 200 3 10`, except 10 coders: `1000 200 100 100 3 10`.)
-The stagger matters *more* than before, because the strict queue order cannot
-bypass a blocked neighbour (see the Coffman section).
+(Parameters: `800 200 200 200 3 10`, except 7 and 10 coders: `1000 200 100 100 3 10`.)
+For ordinary parameters the **ranking of the first requests** is what matters
+(before it, without any stagger, 10 to 12 runs out of 12 burned out for 4 to 10
+coders); the offsets only change the result when the cooldown is large.
 
 ---
 

@@ -22,11 +22,19 @@ long	get_last_compile(t_coder *coder)
 	return (value);
 }
 
-void	set_last_compile(t_coder *coder)
+int	set_last_compile(t_coder *coder)
 {
+	long	now;
+	int		on_time;
+
+	now = get_timestamp_us();
 	pthread_mutex_lock(&coder->data_lock);
-	coder->last_compile_and_start = get_timestamp_ms();
+	on_time = (now - coder->last_compile_and_start) / 1000L
+		<= coder->sim->time_to_burnout;
+	if (on_time)
+		coder->last_compile_and_start = now;
 	pthread_mutex_unlock(&coder->data_lock);
+	return (on_time);
 }
 
 int	get_compiles(t_coder *coder)

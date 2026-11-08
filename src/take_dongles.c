@@ -12,27 +12,21 @@
 
 #include "codexion.h"
 
-static int	is_first_in_line(t_coder *coder)
-{
-	return (heap_peek(&coder->left_dongle->waiting) == coder
-		&& heap_peek(&coder->right_dongle->waiting) == coder);
-}
-
 static int	is_available(t_coder *coder)
 {
 	return (!coder->left_dongle->is_taken && !coder->right_dongle->is_taken
-		&& is_first_in_line(coder));
+		&& heap_peek(&coder->left_dongle->waiting) == coder
+		&& heap_peek(&coder->right_dongle->waiting) == coder);
 }
 
-static int	cooldown_over(t_coder *coder)
+static int	is_time(t_coder *coder)
 {
-	long	now;
 	long	cooldown;
 
-	now = get_timestamp_ms();
 	cooldown = coder->sim->dongle_cooldown;
-	return (now - coder->left_dongle->released_at >= cooldown
-		&& now - coder->right_dongle->released_at >= cooldown);
+	return (ms_since(coder->left_dongle->released_at) >= cooldown
+		&& ms_since(coder->right_dongle->released_at) >= cooldown
+		&& get_elapsed_ms(coder->sim) >= coder->start_ms);
 }
 
 static void	wait_turn(t_coder *coder)
@@ -64,7 +58,7 @@ int	take_dongles(t_coder *coder)
 		stop_simulation(sim);
 		return (0);
 	}
-	while (is_running(sim) && !(is_available(coder) && cooldown_over(coder)))
+	while (is_running(sim) && !(is_available(coder) && is_time(coder)))
 		wait_turn(coder);
 	leave_queues(coder);
 	if (!is_running(sim))
@@ -75,6 +69,5 @@ int	take_dongles(t_coder *coder)
 	coder->left_dongle->is_taken = 1;
 	coder->right_dongle->is_taken = 1;
 	pthread_mutex_unlock(&sim->table_lock);
-	print_dongles(coder);
 	return (1);
 }

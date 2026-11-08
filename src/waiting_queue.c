@@ -17,9 +17,9 @@ long	get_deadline(t_coder *coder)
 	long	last;
 
 	last = get_last_compile(coder);
-	if (coder->sim->time_to_burnout > LONG_MAX - last)
+	if (coder->sim->time_to_burnout > (LONG_MAX - last) / 1000L)
 		return (LONG_MAX);
-	return (last + coder->sim->time_to_burnout);
+	return (last + coder->sim->time_to_burnout * 1000L);
 }
 
 static long	get_key(t_coder *coder, long seq)
@@ -43,8 +43,13 @@ int	enter_queues(t_coder *coder)
 {
 	long	seq;
 
-	seq = coder->sim->next_seq;
-	coder->sim->next_seq++;
+	seq = coder->first_seq;
+	if (seq < 0)
+	{
+		seq = coder->sim->next_seq;
+		coder->sim->next_seq++;
+	}
+	coder->first_seq = -1;
 	if (!push_in(coder->left_dongle, coder, seq))
 		return (0);
 	if (!push_in(coder->right_dongle, coder, seq))

@@ -19,18 +19,18 @@ static int	compile_step(t_coder *coder)
 	sim = coder->sim;
 	if (!take_dongles(coder))
 		return (0);
-	set_last_compile(coder);
+	if (!set_last_compile(coder))
+	{
+		print_burnout(sim, coder->id);
+		release_dongles(coder);
+		return (0);
+	}
+	print_dongles(coder);
 	print_status(coder, "is compiling");
 	smart_sleep(sim, sim->time_to_compile);
 	release_dongles(coder);
 	add_compile(coder);
 	return (is_running(sim));
-}
-
-static void	stagger_start(t_coder *coder)
-{
-	if (coder->id % 2 == 0)
-		smart_sleep(coder->sim, coder->sim->time_to_compile / 2);
 }
 
 void	*routine_coder(void *arg)
@@ -40,7 +40,6 @@ void	*routine_coder(void *arg)
 
 	coder = (t_coder *)arg;
 	sim = coder->sim;
-	stagger_start(coder);
 	while (is_running(sim)
 		&& get_compiles(coder) < sim->number_of_compiles_required)
 	{

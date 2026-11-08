@@ -12,6 +12,14 @@
 
 #include "codexion.h"
 
+void	destroy_sync(t_sim *sim)
+{
+	pthread_mutex_destroy(&sim->running_lock);
+	pthread_mutex_destroy(&sim->print_lock);
+	pthread_mutex_destroy(&sim->table_lock);
+	pthread_cond_destroy(&sim->table_cond);
+}
+
 void	cleanup(t_sim *sim)
 {
 	int	i;
@@ -24,8 +32,5 @@ void	cleanup(t_sim *sim)
 	}
 	destroy_dongles(sim->dongles, sim->number_of_coders);
 	free(sim->coders);
-	pthread_mutex_destroy(&sim->running_lock);
-	pthread_mutex_destroy(&sim->print_lock);
-	pthread_mutex_destroy(&sim->table_lock);
-	pthread_cond_destroy(&sim->table_cond);
+	destroy_sync(sim);
 }
