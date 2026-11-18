@@ -47,9 +47,13 @@ int	get_compiles(t_coder *coder)
 	return (value);
 }
 
-void	add_compile(t_coder *coder)
+int	add_compile(t_coder *coder)
 {
+	int	reached;
+
 	pthread_mutex_lock(&coder->data_lock);
 	coder->nb_compiles++;
+	reached = (coder->nb_compiles == coder->sim->number_of_compiles_required);
 	pthread_mutex_unlock(&coder->data_lock);
+	return (reached);
 }

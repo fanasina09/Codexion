@@ -29,7 +29,8 @@ static int	compile_step(t_coder *coder)
 	print_status(coder, "is compiling");
 	smart_sleep(sim, sim->time_to_compile);
 	release_dongles(coder);
-	add_compile(coder);
+	if (add_compile(coder))
+		coder_done(sim);
 	return (is_running(sim));
 }
 

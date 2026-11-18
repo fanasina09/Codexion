@@ -12,20 +12,6 @@
 
 #include "codexion.h"
 
-static int	all_compiled_enough(t_sim *sim)
-{
-	int	i;
-
-	i = 0;
-	while (i < sim->number_of_coders)
-	{
-		if (get_compiles(&sim->coders[i]) < sim->number_of_compiles_required)
-			return (0);
-		i++;
-	}
-	return (1);
-}
-
 static int	check_burnout(t_sim *sim)
 {
 	int		i;
@@ -57,11 +43,6 @@ void	*monitor(void *arg)
 	{
 		if (check_burnout(sim))
 			break ;
-		if (all_compiled_enough(sim))
-		{
-			stop_simulation(sim);
-			break ;
-		}
 		usleep(1000);
 	}
 	return (NULL);

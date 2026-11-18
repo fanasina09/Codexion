@@ -6,7 +6,7 @@
 /*   By: faharila <faharila@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2026/09/28 09:46:07 by faharila          #+#    #+#             */
-/*   Updated: 2026/11/04 08:04:56 by faharila         ###   ########.fr       */
+/*   Updated: 2026/11/16 11:09:44 by faharila         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -21,7 +21,22 @@
 # include <sys/time.h>
 # include <time.h>
 # include <unistd.h>
-# include "heap.h"
+
+struct	s_coder;
+
+typedef struct s_heap_node
+{
+	long			key;
+	long			seq;
+	struct s_coder	*coder;
+}					t_heap_node;
+
+typedef struct s_heap
+{
+	t_heap_node		*nodes;
+	int				size;
+	int				capacity;
+}					t_heap;
 
 typedef enum e_scheduler
 {
@@ -68,6 +83,7 @@ typedef struct s_sim
 	pthread_mutex_t	table_lock;
 	pthread_cond_t	table_cond;
 	long			next_seq;
+	int				done;
 	t_dongle		*dongles;
 	t_coder			*coders;
 }					t_sim;
@@ -100,12 +116,21 @@ void				print_burnout(t_sim *sim, int id);
 long				get_last_compile(t_coder *coder);
 int					set_last_compile(t_coder *coder);
 int					get_compiles(t_coder *coder);
-void				add_compile(t_coder *coder);
+int					add_compile(t_coder *coder);
+void				coder_done(t_sim *sim);
 void				*monitor(void *arg);
 void				cleanup(t_sim *sim);
 void				destroy_sync(t_sim *sim);
 int					enter_queues(t_coder *coder);
 void				leave_queues(t_coder *coder);
 long				get_deadline(t_coder *coder);
+int					heap_init(t_heap *heap, int capacity);
+void				heap_destroy(t_heap *heap);
+int					heap_push(t_heap *heap, t_heap_node node);
+struct s_coder		*heap_peek(t_heap *heap);
+int					heap_remove(t_heap *heap, struct s_coder *coder);
+void				heap_sift_up(t_heap *heap, int i);
+void				heap_sift_down(t_heap *heap, int i);
+
 
 #endif

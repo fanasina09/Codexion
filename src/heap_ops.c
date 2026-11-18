@@ -3,15 +3,14 @@
 /*                                                        :::      ::::::::   */
 /*   heap_ops.c                                         :+:      :+:    :+:   */
 /*                                                    +:+ +:+         +:+     */
-/*   By: faharila <faharila@student.42antananari    +#+  +:+       +#+        */
+/*   By: faharila <faharila@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2026/10/26 02:45:00 by faharila          #+#    #+#             */
-/*   Updated: 2026/10/26 02:45:00 by faharila         ###   ########.fr       */
+/*   Updated: 2026/11/16 11:10:10 by faharila         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
-#include "heap.h"
-#include <stdlib.h>
+#include "codexion.h"
 
 void	heap_destroy(t_heap *heap)
 {

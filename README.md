@@ -48,7 +48,8 @@ therefore shared by exactly two coders (by one coder with itself when `N = 1`).
 ### What the program does
 
 * one **thread per coder** (`pthread_create`) plus one **monitor thread** that
-  detects burnout and the end of the simulation;
+  detects burnout (the end of the simulation, when everybody is done, is decided
+  by the last coder to finish, see *Clean termination*);
 * one **table mutex + condition variable** protecting the state of all the
   dongles, and one **priority queue per dongle implemented as a binary heap**
   (no standard-library queue);
@@ -72,9 +73,9 @@ therefore shared by exactly two coders (by one coder with itself when `N = 1`).
 | `lone_coder.c` | Special case `N = 1` (a single dongle exists): take it, then wait for the burnout. |
 | `release_dongles.c` | Releases both dongles at once, stamps the cooldown start, wakes the waiters. |
 | `waiting_queue.c` | Glue between the dongles and their heaps: FIFO/EDF key, enqueue in both heaps, dequeue from both. |
-| `heap.h`, `heap.c`, `heap_ops.c` | Generic binary min-heap (the priority queue). |
-| `monitor.c` | Monitor thread: burnout detection and "everybody is done" detection. |
-| `simulation_state.c` | Shared `running` flag, `stop_simulation`, interruptible `smart_sleep`. |
+| `heap.c`, `heap_ops.c` | Generic binary min-heap (the priority queue). |
+| `monitor.c` | Monitor thread: burnout detection. |
+| `simulation_state.c` | Shared `running` flag, `stop_simulation`, `coder_done` (end of the simulation), interruptible `smart_sleep`. |
 | `coder_state.c` | Mutex-protected accessors of a coder's compile counter and last compile start. |
 | `print.c` | Serialized logging (`print_dongles` prints the two dongle lines in one critical section). |
 | `get_time.c` | Time helpers: microsecond clock (`gettimeofday`), whole milliseconds elapsed since a date, elapsed time since the start. |
@@ -93,8 +94,7 @@ make fclean   # removes the object files and the binary
 make re       # fclean + all
 ```
 
-The Makefile does not relink needlessly and rebuilds objects when `codexion.h`
-or `heap.h` change.
+The Makefile does not relink needlessly and rebuilds objects when `codexion.h` change.
 
 ### Run
 
@@ -237,7 +237,9 @@ while (is_running && compiles < required)
     print the 2 dongle lines;         // only once we know the coder is on time
     print "is compiling";   smart_sleep(time_to_compile);
     release_dongles();                // both at once
-    add_compile();
+    add_compile();                    // if it was the last compile required by this coder:
+                                      //   coder_done() -> the LAST coder to finish stops
+                                      //   the simulation here, before printing anything
     print "is debugging";   smart_sleep(time_to_debug);
     print "is refactoring"; smart_sleep(time_to_refactor);
 }
@@ -415,8 +417,10 @@ Coders and the monitor never talk to each other directly; they only share
 
 * **coder → monitor**: a coder updates `last_compile_and_start` and `nb_compiles`
   (`data_lock`); the monitor reads them every millisecond.
-* **monitor → coders**: the monitor calls `stop_simulation` (flag +
-  broadcast); coders poll the flag through `is_running`.
+* **monitor → coders**: on a burnout the monitor calls `print_burnout`, which calls
+  `stop_simulation` (flag + broadcast); coders poll the flag through `is_running`.
+* **last coder → everybody**: the coder whose compile is the last one required
+  calls `coder_done`, which calls `stop_simulation` too.
 
 This also respects the subject's rule that coders do not communicate and do not
 know whether another coder is about to burn out.
@@ -770,6 +774,16 @@ inserted between them**. Inside the lock the `running` flag is tested again, so
 
 * The end is decided in one place (`stop_simulation`) and broadcast on
   `table_cond`, so no thread stays blocked.
+* **The simulation ends at the exact moment the last required compile ends.**
+  A coder counts a compile when it ends (`add_compile`, under `data_lock`). When
+  a coder reaches `number_of_compiles_required`, it calls `coder_done`, which
+  increments a counter under `running_lock`; the coder that brings the counter to
+  `number_of_coders` calls `stop_simulation` **immediately**, before printing
+  `is debugging`. Nothing is printed after the last compile, and the end no longer
+  depends on the monitor's 1 ms polling (the monitor used to notice it later, and
+  the last coder printed a useless `is debugging` first). The last line of the log
+  is then the last event that really happened: `is compiling` of the last coder, or
+  `is refactoring` / `is debugging` of another coder that was still in its cycle.
 * `launch_coders` joins all coder threads and the monitor.
 * `cleanup` destroys every mutex and condition variable, frees every heap
   (`heap_destroy`), the dongles and the coders. Valgrind reports no leak, and

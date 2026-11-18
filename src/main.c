@@ -71,6 +71,7 @@ static int	init_sim(t_sim *sim)
 	pthread_mutex_init(&sim->table_lock, NULL);
 	pthread_cond_init(&sim->table_cond, NULL);
 	sim->next_seq = sim->number_of_coders;
+	sim->done = 0;
 	sim->dongles = init_dongles(sim->number_of_coders);
 	if (!sim->dongles)
 	{

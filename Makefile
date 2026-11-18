@@ -6,7 +6,7 @@
 #    By: faharila <faharila@student.42.fr>          +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2026/10/12 11:22:51 by faharila          #+#    #+#              #
-#    Updated: 2026/10/13 14:35:21 by faharila         ###   ########.fr        #
+#    Updated: 2026/11/16 11:11:07 by faharila         ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -18,7 +18,7 @@ CFLAGS = -Wall -Werror -Wextra -pthread
 
 DIRNAME = src
 
-HEADER = $(DIRNAME)/codexion.h $(DIRNAME)/heap.h
+HEADER = $(DIRNAME)/codexion.h
 
 SRC = $(DIRNAME)/cleanup.c $(DIRNAME)/coder_state.c \
 	  $(DIRNAME)/get_time.c $(DIRNAME)/heap.c \

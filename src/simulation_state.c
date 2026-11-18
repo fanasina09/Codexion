@@ -32,6 +32,18 @@ void	stop_simulation(t_sim *sim)
 	pthread_mutex_unlock(&sim->table_lock);
 }
 
+void	coder_done(t_sim *sim)
+{
+	int	all_done;
+
+	pthread_mutex_lock(&sim->running_lock);
+	sim->done++;
+	all_done = (sim->done == sim->number_of_coders);
+	pthread_mutex_unlock(&sim->running_lock);
+	if (all_done)
+		stop_simulation(sim);
+}
+
 void	smart_sleep(t_sim *sim, long duration_ms)
 {
 	long	start;
